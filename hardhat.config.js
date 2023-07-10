@@ -25,6 +25,11 @@ module.exports = {
     optimisticEthereum: {
       url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
       accounts: [`${PRIV_KEY}`]
+    },
+    hardhat: {
+      forking: {
+        url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`
+      }
     }
   },
   etherscan: {

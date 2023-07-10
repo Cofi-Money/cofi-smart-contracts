@@ -85,36 +85,36 @@ contract YearnZapReinvestWrapper is
 
     constructor(
         VaultAPI _vault,
-        // VaultAPI _rewardVault,
-        // IStakingRewards _stakingRewards,
-        // AggregatorV3Interface _basePriceFeed,
-        address _underlying
-        // uint256 _minHarvest,
-        // uint256 _slippage,
-        // uint256 _wait,
-        // uint24 _poolFee,
-        // uint8 _enabled
+        VaultAPI _rewardVault,
+        IStakingRewards _stakingRewards,
+        AggregatorV3Interface _basePriceFeed,
+        address _underlying,
+        uint256 _minHarvest,
+        uint256 _slippage,
+        uint256 _wait,
+        uint24 _poolFee,
+        uint8 _enabled
     )
         ERC20(
             string(
                 abi.encodePacked("Wrapped ", _vault.name(), "-Reinvest4626")
             ),
-            string(abi.encodePacked("w", _vault.symbol(), "-R4626"))
+            string(abi.encodePacked("w", _vault.symbol()))
         )
         ERC4626(
             IERC20(_underlying) // OZ contract retrieves decimals from asset
         )
     {
-        // yVault = _vault;
-        // yVaultReward = _rewardVault;
-        // stakingRewards = _stakingRewards;
-        // basePriceFeed = _basePriceFeed;
-        // swapParams.minHarvest = 1000000000000000000;
-        // swapParams.slippage = 200;
-        // swapParams.wait = 12;
-        // swapParams.poolFee = 3000;
-        // swapParams.enabled = 1;
-        // authorized[msg.sender] = 1;
+        yVault = _vault;
+        yVaultReward = _rewardVault;
+        stakingRewards = _stakingRewards;
+        basePriceFeed = _basePriceFeed;
+        swapParams.minHarvest = _minHarvest;
+        swapParams.slippage = _slippage;
+        swapParams.wait = _wait;
+        swapParams.poolFee = _poolFee;
+        swapParams.enabled = _enabled;
+        authorized[msg.sender] = 1;
     }
 
     function vault() external view returns (address) {
@@ -210,7 +210,7 @@ contract YearnZapReinvestWrapper is
 
         console.log("Reward asset price ($): %s", answer);
 
-        // I.e., if the want asset is not USD.
+        // I.e., if the want asset is not tied to USD (e.g., wETH).
         if (address(basePriceFeed) != address(0)) {
             (, _answer, , , ) = basePriceFeed.latestRoundData();
 
@@ -219,7 +219,7 @@ contract YearnZapReinvestWrapper is
             // Scales to 18 but need to return answer in 8 decimals
             answer = answer.divPrecisely(_answer.abs()).scaleBy(8, 18);
 
-            console.log("Want asset price ($): %s", answer);
+            console.log("Reward asset price (want): %s", answer);
         }
     }
 
