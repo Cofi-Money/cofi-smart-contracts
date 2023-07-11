@@ -41,6 +41,7 @@ contract YieldFacet is Modifiers {
             return (0, 0, 0); 
         }
 
+        // Add support for CompoundV2ERC4626Wrapper.sol
         if (s.harvestable[s.vault[fiAsset]] == 1) LibVault._harvest(fiAsset);
 
         assets = LibToken._toFiDecimals(fiAsset, LibVault._totalValue(s.vault[fiAsset]));

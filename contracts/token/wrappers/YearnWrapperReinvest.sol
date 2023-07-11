@@ -19,24 +19,15 @@ import {VaultAPI, IYearnRegistry} from "./interfaces/VaultAPI.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import {FixedPointMathLib} from "./libs/FixedPointMathLib.sol";
-import {PercentageMath} from "./libs/PercentageMath.sol";
-import {StableMath} from "./libs/StableMath.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "hardhat/console.sol";
 
 contract YearnZapReinvestWrapper is
     ERC4626,
     IVaultWrapper,
-    Ownable2Step,
-    ReentrancyGuard
+    Ownable2Step
 {
     using FixedPointMathLib for uint;
-    using PercentageMath for uint;
-    using StableMath for uint;
-    using StableMath for int;
     using SafeERC20 for IERC20;
 
     IYearnRegistry public registry =
@@ -51,51 +42,13 @@ contract YearnZapReinvestWrapper is
     IStakingRewardsZap public stakingRewardsZap =
         IStakingRewardsZap(0x498d9dCBB1708e135bdc76Ef007f08CBa4477BE2);
 
-    AggregatorV3Interface public rewardPriceFeed =
-        AggregatorV3Interface(0x0D276FC14719f9292D5C1eA2198673d1f4269246);
-
-    AggregatorV3Interface public wantPriceFeed;
-
-    ISwapRouter public swapRouter =
-        ISwapRouter(0xE592427A0AEce92De3Edee1F18E0157C05861564);
-
     mapping(address => uint8) authorized;
-
-    uint8 preemptivelyHarvest;
-
-    uint256 private constant MIN_DEPOSIT = 1e3;
-
-    /* Swap params */
-    struct SwapParams {
-        uint256 minHarvest;
-        uint256 slippage;
-        uint256 wait;
-        uint24 poolFee;
-        uint8 enabled;
-    }
-
-    SwapParams private swapParams;
-
-    event Harvest(uint256 rewardAssets, uint256 deposited, uint256 yearnShares);
-    // Visibility of emission not obvious (?)
-    event HarvestAttempted(
-        uint256 rewardShares,
-        uint256 rewardAssets,
-        uint256 minHarvest
-    );
-    event HarvestIsDisabled();
 
     constructor(
         VaultAPI _vault,
         VaultAPI _rewardVault,
         IStakingRewards _stakingRewards,
-        AggregatorV3Interface _wantPriceFeed,
-        address _underlying,
-        uint256 _minHarvest,
-        uint256 _slippage,
-        uint256 _wait,
-        uint24 _poolFee,
-        uint8 _enabled
+        address _underlying
     )
         ERC20(
             string(
@@ -110,12 +63,6 @@ contract YearnZapReinvestWrapper is
         yVault = _vault;
         yVaultReward = _rewardVault;
         stakingRewards = _stakingRewards;
-        wantPriceFeed = _wantPriceFeed;
-        swapParams.minHarvest = _minHarvest;
-        swapParams.slippage = _slippage;
-        swapParams.wait = _wait;
-        swapParams.poolFee = _poolFee;
-        swapParams.enabled = _enabled;
         authorized[msg.sender] = 1;
     }
 
@@ -132,23 +79,11 @@ contract YearnZapReinvestWrapper is
                     STAKING REWARDS REINVEST LOGIC
     //////////////////////////////////////////////////////////////*/
 
-    function harvest()
-        public
-        onlyAuthorized
-        returns (uint256 deposited, uint256 yearnShares)
-    {
-        if (swapParams.enabled != 1) {
-            emit HarvestIsDisabled();
-            return (0, 0);
-        }
+    function getReward(uint8 _withdrawal) public onlyAuthorized {
+        // Obtain yvOP from StakingRewards contract.
+        stakingRewards.getReward();
 
-        if (
-            convertYearnRewardSharesToAssets(
-                stakingRewards.earned(address(this))
-            ) > swapParams.minHarvest
-        ) {
-            // Obtain yvOP from StakingRewards contract.
-            stakingRewards.getReward();
+        if (_withdrawal == 1) {
             // Redeem yvOP for OP.
             _doRewardWithdrawal(
                 IERC20(yVaultReward).balanceOf(address(this)),
@@ -156,113 +91,26 @@ contract YearnZapReinvestWrapper is
             );
         }
 
-        uint256 rewardAssets = IERC20(yVaultReward.token()).balanceOf(
-            address(this)
-        );
-
-        /// @dev Can trigger harvest by transferring OP.
-        if (rewardAssets > swapParams.minHarvest) {
-            // Swap for want
-            uint256 amountOut = swapExactInputSingle(rewardAssets);
-            // Deposit to yVault
-            (deposited, yearnShares) = _doRewardDeposit(amountOut);
-            emit Harvest(rewardAssets, deposited, yearnShares);
-        }
     }
 
-    function swapExactInputSingle(
-        uint256 _amountIn
-    ) internal returns (uint256 amountOut) {
-        address tokenIn = yVaultReward.token();
-
-        IERC20(tokenIn).approve(address(swapRouter), _amountIn);
-
-        // Need to divide by Chainlink answer 8 decimals after multiplying
-        uint minOut = (_amountIn.mulDivUp(getLatestPrice(), 1e8))
-        // yVault always has same decimals as its underlying
-            .percentMul(1e4 - swapParams.slippage)
-            .scaleBy(decimals(), yVaultReward.decimals());
-
-        console.log("minOut: %s", minOut);
-
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
-            .ExactInputSingleParams({
-                tokenIn: tokenIn,
-                tokenOut: asset(),
-                fee: swapParams.poolFee,
-                recipient: address(this),
-                deadline: block.timestamp + swapParams.wait,
-                amountIn: _amountIn,
-                amountOutMinimum: minOut,
-                sqrtPriceLimitX96: 0
-            });
-
-        amountOut = swapRouter.exactInputSingle(params);
-
-        console.log("amountOut: %s", amountOut);
+    function recoverERC20(
+        IERC20 token
+    ) external onlyAuthorized {
+        token.safeTransfer(msg.sender, token.balanceOf(address(this)));
     }
 
-    /// @return answer with 8 decimals
-    function getLatestPrice() public view returns (uint256 answer) {
-        (, int _answer, , , ) = rewardPriceFeed.latestRoundData();
-
-        console.logInt(_answer);
-
-        answer = _answer.abs();
-
-        console.log("Reward asset price ($): %s", answer);
-
-        // I.e., if the want asset is not tied to USD (e.g., wETH).
-        if (address(wantPriceFeed) != address(0)) {
-            (, _answer, , , ) = wantPriceFeed.latestRoundData();
-
-            console.logInt(_answer);
-
-            // Scales to 18 but need to return answer in 8 decimals
-            answer = answer.divPrecisely(_answer.abs()).scaleBy(8, 18);
-
-            console.log("Reward asset price (want): %s", answer);
-        }
+    function harvest()
+        public
+        onlyAuthorized
+        returns (uint256 deposited, uint256 yearnShares)
+    {
+        // Deposit to yVault
+        (deposited, yearnShares) = _doRewardDeposit();
     }
 
     /*//////////////////////////////////////////////////////////////
                             ADMIN SETTERS
     //////////////////////////////////////////////////////////////*/
-
-    /// @dev Extremely small Uniswap trades can incur high slippage, hence important to set this
-    function setMinHarvest(
-        uint256 _minHarvest
-    ) external onlyOwner returns (bool) {
-        swapParams.minHarvest = _minHarvest;
-        return true;
-    }
-
-    function setSlippage(uint256 _slippage) external onlyOwner returns (bool) {
-        swapParams.slippage = _slippage;
-        return true;
-    }
-
-    function setWait(uint256 _wait) external onlyOwner returns (bool) {
-        swapParams.wait = _wait;
-        return true;
-    }
-
-    function setPoolFee(uint24 _poolFee) external onlyOwner returns (bool) {
-        swapParams.poolFee = _poolFee;
-        return true;
-    }
-
-    function setEnabled(uint8 _enabled) external onlyOwner returns (bool) {
-        swapParams.enabled = _enabled;
-        return true;
-    }
-
-    function togglePreemptivelyHarvest() external onlyOwner returns (bool) {
-        preemptivelyHarvest == 0
-            ? preemptivelyHarvest = 1
-            : preemptivelyHarvest = 0;
-        return preemptivelyHarvest > 0 ? true : false;
-    }
 
     function toggleAuthorized(
         address account
@@ -284,15 +132,7 @@ contract YearnZapReinvestWrapper is
     function deposit(
         uint256 assets,
         address receiver
-    ) public override nonReentrant returns (uint256 shares) {
-        if (preemptivelyHarvest == 1) {
-            harvest();
-        }
-
-        if (assets < MIN_DEPOSIT) {
-            revert MinimumDepositNotMet();
-        }
-
+    ) public override returns (uint256 shares) {
         (assets, shares) = _deposit(assets, receiver, msg.sender);
 
         emit Deposit(msg.sender, receiver, assets, shares);
@@ -301,20 +141,12 @@ contract YearnZapReinvestWrapper is
     function mint(
         uint256 shares,
         address receiver
-    ) public override nonReentrant returns (uint256 assets) {
-        if (preemptivelyHarvest == 1) {
-            harvest();
-        }
-
+    ) public override returns (uint256 assets) {
         // No need to check for rounding error, previewMint rounds up.
         assets = previewMint(shares);
 
         uint expectedShares = shares;
         (assets, shares) = _deposit(assets, receiver, msg.sender);
-
-        if (assets < MIN_DEPOSIT) {
-            revert MinimumDepositNotMet();
-        }
 
         if (shares != expectedShares) {
             revert NotEnoughAvailableAssetsForAmount();
@@ -327,11 +159,7 @@ contract YearnZapReinvestWrapper is
         uint256 assets,
         address receiver,
         address _owner
-    ) public override nonReentrant returns (uint256 shares) {
-        if (preemptivelyHarvest == 1) {
-            harvest();
-        }
-
+    ) public override returns (uint256 shares) {
         if (assets == 0) {
             revert NonZeroArgumentExpected();
         }
@@ -345,11 +173,7 @@ contract YearnZapReinvestWrapper is
         uint256 shares,
         address receiver,
         address _owner
-    ) public override nonReentrant returns (uint256 assets) {
-        if (preemptivelyHarvest == 1) {
-            harvest();
-        }
-
+    ) public override returns (uint256 assets) {
         if (shares == 0) {
             revert NonZeroArgumentExpected();
         }
@@ -411,10 +235,10 @@ contract YearnZapReinvestWrapper is
     }
 
     /// @notice Deposit want obtained from reward (e.g., USDC received from swapping OP).
-    function _doRewardDeposit(
-        uint256 amount
-    ) internal returns (uint256 deposited, uint256 mintedShares) {
+    function _doRewardDeposit() internal returns (uint256 deposited, uint256 mintedShares) {
         IERC20 _token = IERC20(asset());
+
+        uint256 amount = _token.balanceOf(address(this));
 
         SafeERC20.safeApprove(_token, address(stakingRewardsZap), amount);
 

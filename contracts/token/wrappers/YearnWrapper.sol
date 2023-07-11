@@ -11,7 +11,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import "./interfaces/IVaultWrapper.sol";
 import {VaultAPI, IYearnRegistry} from "./interfaces/VaultAPI.sol";
 import "./interfaces/IERC4626.sol";
-import {FixedPointMathLib} from "./lib/FixedPointMathLib.sol";
+import {FixedPointMathLib} from "./libs/FixedPointMathLib.sol";
 
 /**
  * @author RobAnon

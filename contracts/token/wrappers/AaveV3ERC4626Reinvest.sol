@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
-import { IPool } from "contracts/diamond/interfaces/aave/IPool.sol";
-import { IRewardsController } from "contracts/diamond/interfaces/aave/IRewardsController.sol";
-import { DexSwap } from "contracts/token/utils/swapUtils.sol";
+import {ERC20} from "solmate/src/tokens/ERC20.sol";
+import {ERC4626} from "solmate/src/mixins/ERC4626.sol";
+import {SafeTransferLib} from "solmate/src/utils/SafeTransferLib.sol";
+import {IPool} from "contracts/diamond/interfaces/aave/IPool.sol";
+import {IRewardsController} from "contracts/diamond/interfaces/aave/IRewardsController.sol";
+import {DexSwap} from "contracts/token/utils/swapUtils.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -131,7 +131,11 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     /// @notice Get all rewards from AAVE market
     /// @dev Call before setting routes
     /// @dev Requires manual management of Routes
-    function setRewards() external onlyAuthorized returns (address[] memory tokens) {
+    function setRewards()
+        external
+        onlyAuthorized
+        returns (address[] memory tokens)
+    {
         if (msg.sender != manager) revert INVALID_ACCESS();
         tokens = rewardsController.getRewardsByAsset(address(aToken));
 
@@ -265,21 +269,26 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         uint256 amount,
         address recipient
     ) external onlyOwner returns (bool) {
-
-        require(authorized[recipient] == 1, "AaveV3ERC4626Reinvest: Recipient not authorized");
+        require(
+            authorized[recipient] == 1,
+            "AaveV3ERC4626Reinvest: Recipient not authorized"
+        );
 
         IERC20(token).transfer(recipient, amount);
 
         return true;
     }
 
-    function toggleAuthorized(address account) external onlyOwner returns (bool) {
-
+    function toggleAuthorized(
+        address account
+    ) external onlyOwner returns (bool) {
         require(
             account != owner(),
             "AaveV3ERC4626Reinvest: Cannot remove authorisation of Owner"
         );
-        authorized[account] == 0 ? authorized[account] = 1 : authorized[account] = 0;
+        authorized[account] == 0
+            ? authorized[account] = 1
+            : authorized[account] = 0;
         return authorized[account] == 1 ? true : false;
     }
 
@@ -290,10 +299,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     function deposit(
         uint256 assets,
         address receiver
-    )   public
-        onlyAuthorized virtual override
-        returns (uint256 shares)
-    {
+    ) public virtual override onlyAuthorized returns (uint256 shares) {
         // Check for rounding error since we round down in previewDeposit.
         require((shares = previewDeposit(assets)) != 0, "ZERO_SHARES");
 
@@ -310,10 +316,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     function mint(
         uint256 shares,
         address receiver
-    )   public
-        onlyAuthorized virtual override
-        returns (uint256 assets)
-    {
+    ) public virtual override onlyAuthorized returns (uint256 assets) {
         assets = previewMint(shares); // No need to check for rounding error, previewMint rounds up.
 
         // Need to transfer before minting or ERC777s could reenter.
@@ -330,10 +333,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         uint256 assets_,
         address receiver_,
         address owner_
-    )   public
-        onlyAuthorized virtual override
-        returns (uint256 shares)
-    {
+    ) public virtual override onlyAuthorized returns (uint256 shares) {
         shares = previewWithdraw(assets_); /// @notice No need to check for rounding error, previewWithdraw rounds up.
 
         if (msg.sender != owner_) {
@@ -358,10 +358,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         uint256 shares_,
         address receiver_,
         address owner_
-    )   public
-        onlyAuthorized virtual override
-        returns (uint256 assets)
-    {
+    ) public virtual override onlyAuthorized returns (uint256 assets) {
         if (msg.sender != owner_) {
             uint256 allowed = allowance[owner_][msg.sender]; /// @dev Saves gas for limited approvals.
 
@@ -402,13 +399,9 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         lendingPool.supply(address(asset), assets, address(this), 0);
     }
 
-    function maxDeposit(address)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function maxDeposit(
+        address
+    ) public view virtual override returns (uint256) {
         // check if asset is paused
         uint256 configData = lendingPool
             .getReserveData(address(asset))
@@ -429,8 +422,10 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         }
 
         uint8 tokenDecimals = _getDecimals(configData);
-        uint256 supplyCap = supplyCapInWholeTokens * 10**tokenDecimals;
-        if (aToken.totalSupply() >= supplyCap) { return 0; }
+        uint256 supplyCap = supplyCapInWholeTokens * 10 ** tokenDecimals;
+        if (aToken.totalSupply() >= supplyCap) {
+            return 0;
+        }
         return supplyCap - aToken.totalSupply();
     }
 
@@ -455,18 +450,16 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         }
 
         uint8 tokenDecimals = _getDecimals(configData);
-        uint256 supplyCap = supplyCapInWholeTokens * 10**tokenDecimals;
-        if (aToken.totalSupply() >= supplyCap) { return 0; }
+        uint256 supplyCap = supplyCapInWholeTokens * 10 ** tokenDecimals;
+        if (aToken.totalSupply() >= supplyCap) {
+            return 0;
+        }
         return convertToShares(supplyCap - aToken.totalSupply());
     }
 
-    function maxWithdraw(address owner_)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function maxWithdraw(
+        address owner_
+    ) public view virtual override returns (uint256) {
         // check if asset is paused
         uint256 configData = lendingPool
             .getReserveData(address(asset))
@@ -481,13 +474,9 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         return cash < assetsBalance ? cash : assetsBalance;
     }
 
-    function maxRedeem(address owner)
-        public
-        view
-        virtual
-        override
-        returns (uint256)
-    {
+    function maxRedeem(
+        address owner
+    ) public view virtual override returns (uint256) {
         // check if asset is paused
         uint256 configData = lendingPool
             .getReserveData(address(asset))
@@ -507,21 +496,15 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
                       METADATA
     //////////////////////////////////////////////////////////////*/
 
-    function _vaultName(ERC20 asset_)
-        internal
-        view
-        virtual
-        returns (string memory vaultName)
-    {
+    function _vaultName(
+        ERC20 asset_
+    ) internal view virtual returns (string memory vaultName) {
         vaultName = string.concat("ERC4626-Wrapped Aave v3 ", asset_.symbol());
     }
 
-    function _vaultSymbol(ERC20 asset_)
-        internal
-        view
-        virtual
-        returns (string memory vaultSymbol)
-    {
+    function _vaultSymbol(
+        ERC20 asset_
+    ) internal view virtual returns (string memory vaultSymbol) {
         vaultSymbol = string.concat("wa", asset_.symbol());
     }
 
@@ -554,9 +537,10 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     }
 
     modifier onlyAuthorized() {
-
         require(
-            msg.sender == owner() || msg.sender == manager || authorized[msg.sender] == 1,
+            msg.sender == owner() ||
+                msg.sender == manager ||
+                authorized[msg.sender] == 1,
             "AaveV3ERC4626Reinvest: Only authorized"
         );
         _;
