@@ -31,19 +31,19 @@ struct AppStorage {
                         COFI STABLECOIN PARAMS
     //////////////////////////////////////////////////////////////*/
 
-    // E.g., COFI => 20*10**18. Applies to underlyingAsset (e.g., DAI).
+    // E.g., fiUSD => (20*10**18) - 1. Applies to underlying token (e.g., USDC).
     mapping(address => uint256) minDeposit;
 
     // E.g., COFI => 20*10**18. Applies to underlyingAsset (e.g., DAI).
     mapping(address => uint256) minWithdraw;
 
-    // E.g., COFI => 10bps. Applies to fiAsset only.
+    // E.g., COFI => 10bps. Applies to fi tokens only.
     mapping(address => uint256) mintFee;
 
-    // E.g., COFI => 10bps. Applies to fiAsset only.
+    // E.g., COFI => 10bps. Applies to fi tokens only.
     mapping(address => uint256) redeemFee;
 
-    // E.g., COFI => 1,000bps. Applies to fiAsset only.
+    // E.g., COFI => 1,000bps. Applies to fi tokens only.
     mapping(address => uint256) serviceFee;
 
     // E.g., COFI => 1,000,000bps (100x / 1*10**18 yield earned).
@@ -69,7 +69,7 @@ struct AppStorage {
     mapping(address => uint256) decimals;
 
     /*//////////////////////////////////////////////////////////////
-                            OTHER STORAGE
+                        ADDITIONAL VAULT PARAMS
     //////////////////////////////////////////////////////////////*/
 
     // E.g., wmooHopUSDC => DerivParams.
@@ -77,6 +77,14 @@ struct AppStorage {
 
     // If rebase operation should harvest vault beforehand.
     mapping(address => uint8) harvestable;
+
+    uint8 EXT_GUARD;
+
+    uint256 RETURN_ASSETS;
+
+    /*//////////////////////////////////////////////////////////////
+                            REWARDS PARAMS
+    //////////////////////////////////////////////////////////////*/
 
     // Reward for first-time depositors. Setting to 0 deactivates it.
     uint256 initReward;
@@ -86,12 +94,16 @@ struct AppStorage {
 
     mapping(address => RewardStatus) rewardStatus;
 
-    // Yield points capture (determined via yield earnings from fiAsset).
+    // Yield points capture (determined via yield earnings from fi tokens).
     // E.g., 0x1234... => COFI => YieldPointsCapture.
     mapping(address => mapping(address => YieldPointsCapture)) YPC;
 
-    // External points capture (to yield earnings). Maps to account only (not fiAsset).
+    // External points capture (to yield earnings). Maps to account only (not fi tokens).
     mapping(address => uint256) XPC;
+
+    /*//////////////////////////////////////////////////////////////
+                            ACCESS PARAMS
+    //////////////////////////////////////////////////////////////*/
 
     mapping(address => uint8)   isWhitelisted;
 
@@ -107,10 +119,6 @@ struct AppStorage {
     address owner;
 
     address backupOwner;
-
-    uint8 EXT_GUARD;
-
-    uint256 RETURN_ASSETS;
 }
 
 library LibAppStorage {
@@ -121,62 +129,68 @@ library LibAppStorage {
         }
     }
 
-    function abs(int256 x) internal pure returns (uint256) {
-        return uint256(x >= 0 ? x : -x);
+    function abs(int256 x_) internal pure returns (uint256) {
+        return uint256(x_ >= 0 ? x_ : -x_);
     }
 }
 
 contract Modifiers {
     AppStorage internal s;
 
-    /*//////////////////////////////////////////////////////////////
-                            MODIFIERS
-    //////////////////////////////////////////////////////////////*/
-
     modifier isWhitelisted() {
-        require(s.isWhitelisted[msg.sender] == 1, 'Caller not whitelisted');
+        require(s.isWhitelisted[msg.sender] == 1, "Caller not whitelisted");
         _;
     }
 
-    modifier minDeposit(uint256 amount, address fiAsset) {
-        require(amount >= s.minDeposit[fiAsset], 'Insufficient deposit amount');
+    modifier minDeposit(uint256 _amount, address _fi) {
+        require(
+            _amount > s.minDeposit[_fi],
+            "Insufficient deposit amount for fi token"
+        );
         _;
     }
 
-    modifier minWithdraw(uint256 amount, address fiAsset) {
-        require(amount >= s.minWithdraw[fiAsset], 'Insufficient withdraw amount');
+    modifier minWithdraw(uint256 _amount, address _fi) {
+        require(
+            _amount > s.minWithdraw[_fi],
+            "Insufficient withdraw amount for fi token"
+        );
         _;
     }
 
-    modifier mintEnabled(address fiAsset) {
-        require(s.mintEnabled[fiAsset] == 1, 'Mint not enabled');
+    modifier mintEnabled(address _fi) {
+        require(s.mintEnabled[_fi] == 1, "Mint not enabled for fi token");
         _;
     }
 
-    modifier redeemEnabled(address fiAsset) {
-        require(s.redeemEnabled[fiAsset] == 1, 'Redeem not enabled');
+    modifier redeemEnabled(address _fi) {
+        require(s.redeemEnabled[_fi] == 1, "Redeem not enabled for fi token");
         _;
     }
     
     modifier onlyAdmin() {
-        require(s.isAdmin[msg.sender] == 1, 'Caller not Admin');
+        require(s.isAdmin[msg.sender] == 1, "Caller not Admin");
         _;
     }
 
     modifier onlyWhitelister() {
-        require(s.isAdmin[msg.sender] == 1 || s.isWhitelister[msg.sender] == 1, 'Caller not Admin');
+        require(
+            s.isAdmin[msg.sender] == 1 || s.isWhitelister[msg.sender] == 1,
+            "Caller not Whitelister");
         _;
     }
 
     /// @dev Low-level call operation available only for public/external functions.
-    modifier EXTGuard() {
-        require(s.EXT_GUARD == 1, 'Not accessible to external accounts');
+    modifier extGuard() {
+        require(s.EXT_GUARD == 1, "Not accessible externally");
         _;
     }
 
-    modifier EXTGuardOn() {
+    modifier extGuardOn() {
+        require(s.RETURN_ASSETS == 0, "RETURN_ASSETS not reset");
         s.EXT_GUARD = 1;
         _;
+        s.RETURN_ASSETS = 0;
         s.EXT_GUARD = 0;
     }
 }

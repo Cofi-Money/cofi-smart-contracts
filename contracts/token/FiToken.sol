@@ -1,16 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/**
-
-    █▀▀ █▀█ █▀▀ █
-    █▄▄ █▄█ █▀░ █
-
-    @author The Stoa Corporation Ltd., Origin Protocol Inc
-    @title  Fi Token Contract
-    @notice Rebasing ERC20 contract. Repurposed from OUSD.sol contract.
- */
-
 import { SafeMath } from '@openzeppelin/contracts/utils/math/SafeMath.sol';
 import { Address } from '@openzeppelin/contracts/utils/Address.sol';
 import { ERC20Permit } from './utils/draft-ERC20Permit.sol';
@@ -19,6 +9,17 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import 'contracts/diamond/libs/external/PercentageMath.sol';
+
+/**
+
+    █▀▀ █▀█ █▀▀ █
+    █▄▄ █▄█ █▀░ █
+
+    @author Sam Goodenough, The Stoa Corporation Ltd.
+            (adapted from Origin Protocol Inc.)
+    @title  Fi Token Contract
+    @notice Rebasing ERC20 contract. Repurposed from OUSD.sol contract.
+ */
 
 /**
  * NOTE that this is an ERC20 token but the invariant that the sum of
@@ -89,7 +90,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         string memory _symbol
     ) ERC20(_name, _symbol) ERC20Permit(_name) {
         admin[msg.sender] = true;
-        _rebasingCreditsPerToken = 982240116801301400;
+        _rebasingCreditsPerToken = 1e18;
     }
 
     /**

@@ -1,421 +1,430 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Modifiers } from "../libs/LibAppStorage.sol";
+import { PercentageMath } from "../libs/external/PercentageMath.sol";
+import { LibToken } from "../libs/LibToken.sol";
+import { LibReward } from "../libs/LibReward.sol";
+import { LibVault } from "../libs/LibVault.sol";
+import { IERC4626 } from "../interfaces/IERC4626.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "hardhat/console.sol";
+
 /**
 
     █▀▀ █▀█ █▀▀ █
     █▄▄ █▄█ █▀░ █
 
-    @author The Stoa Corporation Ltd.
+    @author Sam Goodenough, The Stoa Corporation Ltd.
     @title  Yield Facet
     @notice Provides logic for distributing and managing yield.
  */
 
-import { Modifiers } from '../libs/LibAppStorage.sol';
-import { PercentageMath } from '../libs/external/PercentageMath.sol';
-import { LibToken } from '../libs/LibToken.sol';
-import { LibReward } from '../libs/LibReward.sol';
-import { LibVault } from '../libs/LibVault.sol';
-import { IERC4626 } from '../interfaces/IERC4626.sol';
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "hardhat/console.sol";
-
 contract YieldFacet is Modifiers {
     using PercentageMath for uint256;
 
-    /// @notice Function for updating fiAssets originating from vaults.
+    /*//////////////////////////////////////////////////////////////
+                            YIELD DISTRIBUTION
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Function for updating fi token supply relative to vault earnings.
     ///
-    /// @param  fiAsset The fiAsset to distribute yield earnings for.
+    /// @param  _fi The fi token to distribute yield earnings for.
     function rebase(
-        address fiAsset
+        address _fi
     )   public
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            "YieldFacet: Caller not Upkeep or Admin"
         );
-        uint256 currentSupply = IERC20(fiAsset).totalSupply();
+        uint256 currentSupply = IERC20(_fi).totalSupply();
         if (currentSupply == 0) {
-            emit LibToken.TotalSupplyUpdated(fiAsset, 0, 0, 1e18, 0);
+            emit LibToken.TotalSupplyUpdated(_fi, 0, 0, 1e18, 0);
             return (0, 0, 0); 
         }
 
         // Add support for CompoundV2ERC4626Wrapper.sol
-        if (s.harvestable[s.vault[fiAsset]] == 1) LibVault._harvest(fiAsset);
+        if (s.harvestable[s.vault[_fi]] == 1) LibVault._harvest(_fi);
 
-        assets = LibToken._toFiDecimals(fiAsset, LibVault._totalValue(s.vault[fiAsset]));
+        assets = LibToken._toFiDecimals(_fi, LibVault._totalValue(s.vault[_fi]));
 
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
 
-            shareYield = yield.percentMul(1e4 - s.serviceFee[fiAsset]);
+            shareYield = yield.percentMul(1e4 - s.serviceFee[_fi]);
 
             LibToken._changeSupply(
-                fiAsset,
+                _fi,
                 currentSupply + shareYield,
                 yield,
                 yield - shareYield
             );
 
             if (yield - shareYield > 0)
-                LibToken._mint(fiAsset, s.feeCollector, yield - shareYield);
+                LibToken._mint(_fi, s.feeCollector, yield - shareYield);
         } else {
             emit LibToken.TotalSupplyUpdated(
-                fiAsset,
+                _fi,
                 assets,
                 0,
-                LibToken._getRebasingCreditsPerToken(fiAsset),
+                LibToken._getRebasingCreditsPerToken(_fi),
                 0
             );
             return (assets, 0, 0);
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            MIGRATION FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /// @dev    Opt to trigger the relevant route rather than a single migrate function
     ///         that has to deduce the correct route.
     function migrateVault(
-        address fiAsset,
-        address newVault
+        address _fi,
+        address _newVault
     )   external
         returns (bool)
     {
         if (
-            IERC4626(s.vault[fiAsset]).asset() == IERC4626(newVault).asset()
-        ) return migrateMutual(fiAsset, newVault); // U => U; D => D.
+            IERC4626(s.vault[_fi]).asset() == IERC4626(_newVault).asset()
+        ) return migrateMutual(_fi, _newVault); // U => U; D => D.
         else if (
-            s.underlying[fiAsset] == IERC4626(s.vault[fiAsset]).asset() &&
-            s.underlying[fiAsset] != IERC4626(newVault).asset()
-        ) return migrateToDeriv(fiAsset, newVault); // U => D.
+            s.underlying[_fi] == IERC4626(s.vault[_fi]).asset() &&
+            s.underlying[_fi] != IERC4626(_newVault).asset()
+        ) return migrateToDeriv(_fi, _newVault); // U => D.
         else if (
-            s.underlying[fiAsset] != IERC4626(s.vault[fiAsset]).asset() &&
-            s.underlying[fiAsset] == IERC4626(newVault).asset()
-        ) return migrateToUnderlying(fiAsset, newVault); // D => U.
-        else return migrateToUnlikeDeriv(fiAsset, newVault); // D => D'.
+            s.underlying[_fi] != IERC4626(s.vault[_fi]).asset() &&
+            s.underlying[_fi] == IERC4626(_newVault).asset()
+        ) return migrateToUnderlying(_fi, _newVault); // D => U.
+        else return migrateToUnlikeDeriv(_fi, _newVault); // D => D".
     }
 
     /// @notice Function for migrating to a new Vault. The new Vault must support the
-    ///         same underlyingAsset (e.g., USDC).
+    ///         same underlying token (e.g., USDC).
     ///
-    /// @dev    Ensure that a buffer of the underlyingAsset resides in the Diamond
+    /// @dev    Ensure that a buffer of the underlying token resides in the Diamond
     ///         beforehand to account for slippage.
     ///
-    /// @param  fiAsset     The fiAsset to migrate vault backing for.
-    /// @param  newVault    The vault to migrate to (must adhere to ERC4626).
+    /// @param  _fi     The fi token to migrate vault backing for.
+    /// @param  _newVault    The vault to migrate to (must adhere to ERC4626).
     /// @dev    U => U; D => D.
     function migrateMutual(
-        address fiAsset,
-        address newVault
+        address _fi,
+        address _newVault
     )   public
         returns (bool)
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            "YieldFacet: Caller not Upkeep or Admin"
         );
         // Pull funds from old vault.
-        uint256 assets = IERC4626(s.vault[fiAsset]).redeem(
-            IERC20(s.vault[fiAsset]).balanceOf(address(this)),
+        uint256 assets = IERC4626(s.vault[_fi]).redeem(
+            IERC20(s.vault[_fi]).balanceOf(address(this)),
             address(this),
             address(this)
         );
 
-        // Approve newVault spend for Diamond.
+        // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[fiAsset]).asset()),
-            newVault,
-            assets + s.buffer[fiAsset]
+            IERC20(IERC4626(s.vault[_fi]).asset()),
+            _newVault,
+            assets + s.buffer[_fi]
         );
 
         // Deploy funds to new vault.
         LibVault._wrap(
-            assets + s.buffer[fiAsset],
-            newVault,
+            assets + s.buffer[_fi],
+            _newVault,
             address(this)
         );
 
         require(
             // Vaults use same asset, therefore same decimals.
-            assets <= LibVault._totalValue(newVault),
-            'YieldFacet: Vault migration slippage exceeded'
+            assets <= LibVault._totalValue(_newVault),
+            "YieldFacet: Vault migration slippage exceeded"
         );
         emit LibVault.VaultMigration(
-            fiAsset,
-            s.vault[fiAsset],
-            newVault,
+            _fi,
+            s.vault[_fi],
+            _newVault,
             assets,
-            LibVault._totalValue(newVault)
+            LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fiAsset.
-        s.vault[fiAsset] = newVault;
+        // Update vault for fi token.
+        s.vault[_fi] = _newVault;
 
-        rebase(fiAsset);
+        rebase(_fi);
 
         return true;
     }
 
     /// @dev    U => D.
     function migrateToDeriv(
-        address fiAsset,
-        address newVault
+        address _fi,
+        address _newVault
     )   public
-        EXTGuardOn
+        extGuardOn
         returns (bool)
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            "YieldFacet: Caller not Upkeep or Admin"
         );
         // Obtain U.
-        uint256 assets = IERC4626(s.vault[fiAsset]).redeem(
-            IERC20(s.vault[fiAsset]).balanceOf(address(this)),
+        uint256 assets = IERC4626(s.vault[_fi]).redeem(
+            IERC20(s.vault[_fi]).balanceOf(address(this)),
             address(this),
             address(this)
         );
 
         // Get D from U.
         (bool success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[s.vault[fiAsset]].toDeriv,
-            assets + s.buffer[fiAsset]  // Convert U buffer to D here.
+            s.derivParams[s.vault[_fi]].toDeriv,
+            assets + s.buffer[_fi]  // Convert U buffer to D here.
         )); // Will fail here if set vault is not using a derivative.
-        require(success, 'YieldFacet: Underlying to derivative operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
+        require(success, "YieldFacet: Underlying to derivative operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
 
-        // Approve newVault spend for Diamond.
+        // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(newVault).asset()),
-            newVault,
+            IERC20(IERC4626(_newVault).asset()),
+            _newVault,
             s.RETURN_ASSETS
         );
 
         (success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[s.vault[fiAsset]].convertToUnderlying,
+            s.derivParams[s.vault[_fi]].convertToUnderlying,
             LibVault._getAssets(
                 // Deploy D.
                 LibVault._wrap(
                     s.RETURN_ASSETS,
-                    s.vault[fiAsset],
+                    s.vault[_fi],
                     address(this)
                 ),
-                s.vault[fiAsset]
+                s.vault[_fi]
             )
         ));
-        require(success, 'YieldFacet: Convert to underlying operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
-        s.RETURN_ASSETS = 0; // Reset.
+        require(success, "YieldFacet: Convert to underlying operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
 
         require(
             // Ensure same decimals for accurate comparison.
-            LibToken._toFiDecimals(fiAsset, assets) <=
-                LibToken._toFiDecimals(fiAsset, LibVault._totalValue(newVault)),
-            'YieldFacet: Vault migration slippage exceeded'
+            LibToken._toFiDecimals(_fi, assets) <=
+                LibToken._toFiDecimals(_fi, LibVault._totalValue(_newVault)),
+            "YieldFacet: Vault migration slippage exceeded"
         );
         emit LibVault.VaultMigration(
-            fiAsset,
-            s.vault[fiAsset],
-            newVault,
+            _fi,
+            s.vault[_fi],
+            _newVault,
             assets,
-            LibVault._totalValue(newVault)
+            LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fiAsset.
-        s.vault[fiAsset] = newVault;
+        // Update vault for fi token.
+        s.vault[_fi] = _newVault;
 
-        rebase(fiAsset);
+        rebase(_fi);
 
         return true;
     }
 
     /// @dev    D => U.
     function migrateToUnderlying(
-        address fiAsset,
-        address newVault
+        address _fi,
+        address _newVault
     )   public
-        EXTGuardOn
+        extGuardOn
         returns (bool)
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            "YieldFacet: Caller not Upkeep or Admin"
         );
 
         // Get U from D.
         (bool success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[s.vault[fiAsset]].toUnderlying,
+            s.derivParams[s.vault[_fi]].toUnderlying,
             // Obtain D.
-            IERC4626(s.vault[fiAsset]).redeem( // E.g., 100 USDC-LP.
-                IERC20(s.vault[fiAsset]).balanceOf(address(this)),
+            IERC4626(s.vault[_fi]).redeem( // E.g., 100 USDC-LP.
+                IERC20(s.vault[_fi]).balanceOf(address(this)),
                 address(this),
                 address(this)
             )
         )); // Will fail here if set vault is not using a derivative.
-        require(success, 'YieldFacet: Underlying to derivative operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
+        require(success, "YieldFacet: Underlying to derivative operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
 
-        // Approve newVault spend for Diamond.
+        // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(newVault).asset()),
-            newVault,
-            s.RETURN_ASSETS + s.buffer[fiAsset] // Include buffer here.
+            IERC20(IERC4626(_newVault).asset()),
+            _newVault,
+            s.RETURN_ASSETS + s.buffer[_fi] // Include buffer here.
         );
 
-        // Deploy U. Remaining logic same as 'migrateMutual()'.
+        // Deploy U. Remaining logic same as "migrateMutual()".
         LibVault._wrap(
-            s.RETURN_ASSETS + s.buffer[fiAsset],
-            newVault,
+            s.RETURN_ASSETS + s.buffer[_fi],
+            _newVault,
             address(this)
         );
 
         require(
-            // '_totalValue()' returns underlying equivalent, therefore same decimals.
-            s.RETURN_ASSETS <= LibVault._totalValue(newVault),
-            'YieldFacet: Vault migration slippage exceeded'
+            // "_totalValue()" returns underlying equivalent, therefore same decimals.
+            s.RETURN_ASSETS <= LibVault._totalValue(_newVault),
+            "YieldFacet: Vault migration slippage exceeded"
         );
         emit LibVault.VaultMigration(
-            fiAsset,
-            s.vault[fiAsset],
-            newVault,
+            _fi,
+            s.vault[_fi],
+            _newVault,
             s.RETURN_ASSETS,
-            LibVault._totalValue(newVault)
+            LibVault._totalValue(_newVault)
         );
-        s.RETURN_ASSETS = 0;
 
-        // Update vault for fiAsset.
-        s.vault[fiAsset] = newVault;
+        // Update vault for fi token.
+        s.vault[_fi] = _newVault;
 
-        rebase(fiAsset);
+        rebase(_fi);
 
         return true;
     }
 
-    /// @dev D => D' (= D => U => D').
+    /// @dev D => D" (= D => U => D").
     function migrateToUnlikeDeriv(
-        address fiAsset,
-        address newVault
+        address _fi,
+        address _newVault
     )   public
-        EXTGuardOn
+        extGuardOn
         returns (bool)
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            "YieldFacet: Caller not Upkeep or Admin"
         );
         // Obtain D.
-        uint256 assets = IERC4626(s.vault[fiAsset]).redeem(
-            IERC20(s.vault[fiAsset]).balanceOf(address(this)),
+        uint256 assets = IERC4626(s.vault[_fi]).redeem(
+            IERC20(s.vault[_fi]).balanceOf(address(this)),
             address(this),
             address(this)
         );
 
         // Get U from D.
         (bool success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[s.vault[fiAsset]].toUnderlying,
+            s.derivParams[s.vault[_fi]].toUnderlying,
             assets  // Buffer already exists in underlying so no need to convert.
         )); // Will fail here if set vault is not using a derivative.
-        require(success, 'YieldFacet: Underlying to derivative operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
+        require(success, "YieldFacet: Underlying to derivative operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
         assets = s.RETURN_ASSETS;
         s.RETURN_ASSETS = 0; // Need to reset for next operation.
 
-        // Get D' from U.
+        // Get D" from U.
         (success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[newVault].toDeriv,
-            assets + s.buffer[fiAsset]  // Convert U buffer to D' here.
+            s.derivParams[_newVault].toDeriv,
+            assets + s.buffer[_fi]  // Convert U buffer to D" here.
         )); // Will fail here if new vault is not using a derivative.
-        require(success, 'YieldFacet: Underlying to derivative operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
+        require(success, "YieldFacet: Underlying to derivative operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
 
         // Approve new vault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(newVault).asset()),
-            newVault,
+            IERC20(IERC4626(_newVault).asset()),
+            _newVault,
             s.RETURN_ASSETS
         );
 
-        // Deploy D'.
+        // Deploy D".
         (success, ) = address(this).call(abi.encodeWithSelector(
-            s.derivParams[newVault].convertToUnderlying,
+            s.derivParams[_newVault].convertToUnderlying,
             LibVault._getAssets(
                 LibVault._wrap(
                     s.RETURN_ASSETS,
-                    newVault,
+                    _newVault,
                     address(this)
                 ),
-                s.vault[fiAsset]
+                s.vault[_fi]
             )
         ));
-        require(success, 'YieldFacet: Convert to underlying operation failed');
-        require(s.RETURN_ASSETS > 0, 'YieldFacet: Zero return assets received');
-        s.RETURN_ASSETS = 0; // Reset.
+        require(success, "YieldFacet: Convert to underlying operation failed");
+        require(s.RETURN_ASSETS > 0, "YieldFacet: Zero return assets received");
 
         require(
             // Ensure same decimals for accurate comparison.
-            LibToken._toFiDecimals(fiAsset, assets) <=
-                LibToken._toFiDecimals(fiAsset, LibVault._totalValue(newVault)),
-            'YieldFacet: Vault migration slippage exceeded'
+            LibToken._toFiDecimals(_fi, assets) <=
+                LibToken._toFiDecimals(_fi, LibVault._totalValue(_newVault)),
+            "YieldFacet: Vault migration slippage exceeded"
         );
         emit LibVault.VaultMigration(
-            fiAsset,
-            s.vault[fiAsset],
-            newVault,
+            _fi,
+            s.vault[_fi],
+            _newVault,
             assets,
-            LibVault._totalValue(newVault)
+            LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fiAsset.
-        s.vault[fiAsset] = newVault;
+        // Update vault for fi token.
+        s.vault[_fi] = _newVault;
 
-        rebase(fiAsset);
+        rebase(_fi);
 
         return true;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN - SETTERS
+    //////////////////////////////////////////////////////////////*/
+
     function setBuffer(
-        address fiAsset,
-        uint256 buffer
+        address _fi,
+        uint256 _buffer
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.buffer[fiAsset] = buffer;
+        s.buffer[_fi] = _buffer;
         return true;
     }
 
-    /// @dev Only for setting up a new fiAsset. 'migrateVault()' must be used otherwise.
+    /// @dev Only for setting up a new fi token. "migrateVault()" must be used otherwise.
     function setVault(
-        address fiAsset,
-        address vault
+        address _fi,
+        address _vault
     )   external
         onlyAdmin
         returns (bool)
     {
         require(
-            s.vault[fiAsset] == address(0),
-            'YieldFacet: fiAsset must not already link with a Vault'
+            s.vault[_fi] == address(0),
+            "YieldFacet: Fi token must not already link with a vault"
         );
-        s.vault[fiAsset] = vault;
+        s.vault[_fi] = _vault;
         return true;
     }
 
     function rebaseOptIn(
-        address fiAsset
+        address _fi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptIn(fiAsset);
+        LibToken._rebaseOptIn(_fi);
         return true;
     }
 
     function rebaseOptOut(
-        address fiAsset
+        address _fi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptOut(fiAsset);
+        LibToken._rebaseOptOut(_fi);
         return true;
     }
 }

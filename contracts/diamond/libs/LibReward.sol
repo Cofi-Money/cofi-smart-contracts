@@ -20,16 +20,16 @@ library LibReward {
 
     /// @notice Distributes rewards not tied to yield.
     ///
-    /// @param  account The recipient.
-    /// @param  points  The amount of points distributed.
+    /// @param  _account    The recipient.
+    /// @param  _points     The amount of points distributed.
     function _reward(
-        address account,
-        uint256 points
+        address _account,
+        uint256 _points
     ) internal {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        s.XPC[account] += points;
-        emit RewardDistributed(account, points);
+        s.XPC[_account] += _points;
+        emit RewardDistributed(_account, _points);
     }
 
     /// @notice Reward distributed for each new first deposit.
@@ -53,9 +53,9 @@ library LibReward {
 
     /// @notice Reward distributed for each referral.
     ///
-    /// @param  referral    The referral account.
+    /// @param  _referral   The referral account.
     function _referReward(
-        address referral
+        address _referral
     ) internal {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
@@ -65,16 +65,16 @@ library LibReward {
             // If the user has not already claimed a refer reward.
             s.rewardStatus[msg.sender].referClaimed == 0 &&
             // If the referrer is a whitelisted account.
-            s.isWhitelisted[referral] == 1 &&
+            s.isWhitelisted[_referral] == 1 &&
             // If referrals are enabled.
-            s.rewardStatus[referral].referDisabled != 1
+            s.rewardStatus[_referral].referDisabled != 1
         ) {
             // Apply referral to user.
             s.XPC[msg.sender] += s.referReward;
             emit RewardDistributed(msg.sender, s.referReward);
             // Provide referrer with reward.
-            s.XPC[referral] += s.referReward;
-            emit RewardDistributed(referral, s.referReward);
+            s.XPC[_referral] += s.referReward;
+            emit RewardDistributed(_referral, s.referReward);
             // Mark user as having claimed their one-time referral.
             s.rewardStatus[msg.sender].referClaimed == 1;
         }

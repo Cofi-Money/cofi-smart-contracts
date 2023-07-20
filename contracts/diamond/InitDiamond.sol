@@ -14,18 +14,17 @@ contract InitDiamond {
     AppStorage internal s;
 
     struct Args {
-        address     fiUSD;  // fiAsset [USD]
-        address     fiETH;  // fiAsset [ETH]
-        address     fiBTC;  // fiAsset [BTC]
-        address     vUSDC;  // yieldAsset [USD]
-        address     vETH;   // yieldAsset [ETH]
-        address     vBTC;   // yieldAsset [BTC]
-        address     USDC;   // underlyingAsset [USD]
-        address     wETH;   // underlyingAsset [ETH]
-        address     wBTC;   // underlyingAsset [BTC]
+        address     fiUSD;  // fi token [USD]
+        address     fiETH;  // fi token [ETH]
+        address     fiBTC;  // fi token [BTC]
+        address     vUSDC;  // vault share token [USD]
+        address     vETH;   // vault share token [ETH]
+        address     vBTC;   // vault share token [BTC]
+        address     USDC;   // underlying token [USD]
+        address     wETH;   // underlying token [ETH]
+        address     wBTC;   // underlying token [BTC]
         // msg.sender is Admin + Whiteslited by default, so do not need to include.
-        address[]   admins;
-        address     whitelister;
+        address[]   roles;
     }
     
     function init(Args memory _args) external {
@@ -47,13 +46,13 @@ contract InitDiamond {
         LibToken._rebaseOptIn(_args.fiETH);
         LibToken._rebaseOptIn(_args.fiBTC);
 
-        // Set min deposit/withdraw values.
-        s.minDeposit[_args.fiUSD]   = 20e6;    // 20 USDC [6 digits].
-        s.minDeposit[_args.fiETH]   = 1e16;    // 0.01 ETH [18 digits].
-        s.minDeposit[_args.fiBTC]   = 1e5;     // 0.001 BTC [8 digits].
-        s.minWithdraw[_args.fiUSD]  = 20e6;    // 20 USDC.
-        s.minWithdraw[_args.fiETH]  = 1e16;    // 0.01 ETH.
-        s.minWithdraw[_args.fiBTC]  = 1e5;     // 0.001 BTC.
+        // Set min deposit/withdraw values (target $20).
+        s.minDeposit[_args.fiUSD]   = 20e6 - 1; // 20 USDC [6 digits].
+        s.minDeposit[_args.fiETH]   = 1e16 - 1; // 0.01 ETH [18 digits].
+        s.minDeposit[_args.fiBTC]   = 1e5 - 1;  // 0.001 BTC [8 digits].
+        s.minWithdraw[_args.fiUSD]  = 20e6 - 1; // 20 USDC.
+        s.minWithdraw[_args.fiETH]  = 1e16 - 1; // 0.01 ETH.
+        s.minWithdraw[_args.fiBTC]  = 1e5 - 1;  // 0.001 BTC.
 
         s.vault[_args.fiUSD]    = _args.vUSDC;
         s.vault[_args.fiETH]    = _args.vETH;
@@ -61,6 +60,7 @@ contract InitDiamond {
 
         s.harvestable[s.vault[_args.fiUSD]] = 1;
         s.harvestable[s.vault[_args.fiETH]] = 1;
+        s.harvestable[s.vault[_args.fiBTC]] = 1;
 
         // Set mint enabled.
         s.mintEnabled[_args.fiUSD]  = 1;
@@ -93,8 +93,8 @@ contract InitDiamond {
         s.pointsRate[_args.fiBTC]   = 1e10; // 100 points/0.0001 fiBTC earned.
 
         s.owner         = msg.sender;
-        s.backupOwner   = _args.admins[0];
-        s.feeCollector  = _args.admins[1];
+        s.backupOwner   = _args.roles[1];
+        s.feeCollector  = _args.roles[2];
 
         s.initReward    = 100*10**18;  // 100 Points for initial deposit.
         s.referReward   = 10*10**18;  // 10 Points each for each referral.
@@ -111,11 +111,15 @@ contract InitDiamond {
         s.isWhitelisted[msg.sender] = 1;
 
         // Set admins.
-        for(uint i = 1; i < _args.admins.length; ++i) {
-            s.isAdmin[_args.admins[i]] = 1;
-            s.isWhitelisted[_args.admins[i]] = 1;
+        for(uint i = 1; i < _args.roles.length; ++i) {
+            s.isAdmin[_args.roles[i]] = 1;
+            s.isWhitelisted[_args.roles[i]] = 1;
         }
 
-        s.isWhitelister[_args.whitelister] = 1;
+        // Set accounts that can whitelist
+        // First account can whitelist but is not admin
+        for(uint i = 0; i < _args.roles.length; ++i) {
+            s.isWhitelister[_args.roles[i]] = 1;
+        }
     }
 }

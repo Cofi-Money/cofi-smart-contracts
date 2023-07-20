@@ -56,7 +56,7 @@ interface IERC4626 is IERC20 {
     /**
      * @dev Addition for executing harvest in the context of COFI.
      */
-    function harvest() external returns (uint256, uint256);
+    function harvest() external returns (uint256);
 
     function mint(uint256 shares, address receiver)
         external

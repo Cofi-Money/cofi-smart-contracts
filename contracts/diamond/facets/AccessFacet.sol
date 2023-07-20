@@ -1,107 +1,118 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Modifiers } from "../libs/LibAppStorage.sol";
+
 /**
 
     █▀▀ █▀█ █▀▀ █
     █▄▄ █▄█ █▀░ █
 
-    @author The Stoa Corporation Ltd.
+    @author Sam Goodenough, The Stoa Corporation Ltd.
     @title  Access Facet
-    @notice Admin functions for managing account roles.
+    @notice Admin functions for managing/viewing account roles.
  */
-
-import { Modifiers } from "../libs/LibAppStorage.sol";
 
 contract AccessFacet is Modifiers {
 
-    function toggleWhitelist(
-        address account
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN - SETTERS
+    //////////////////////////////////////////////////////////////*/
+
+    function setWhitelist(
+        address _account,
+        uint8   _enabled
     )   external
         onlyWhitelister
         returns (bool)
     {
-        s.isWhitelisted[account] = s.isWhitelisted[account] == 0 ? 1 : 0;
-        return s.isWhitelisted[account] == 1 ? true : false;
+
+        s.isWhitelisted[_account] = _enabled;
+        return true;
     }
 
-    function toggleAdmin(
-        address account
+    function setAdmin(
+        address _account,
+        uint8   _enabled
     )   external
         onlyAdmin
         returns (bool)
     {
         require(
-            account != s.owner || account != s.backupOwner,
+            _account != s.owner || _account != s.backupOwner,
             "AccessFacet: Owners must retain admin status"
         );
 
-        s.isAdmin[account] = s.isAdmin[account] == 0 ? 1 : 0;
-        return s.isAdmin[account] == 1 ? true : false;
-    }
-
-    function toggleUpkeep(
-        address account
-    )   external
-        onlyAdmin
-        returns (bool)
-    {
-        s.isUpkeep[account] = s.isUpkeep[account] == 0 ? 1 : 0;
-        return s.isUpkeep[account] == 1 ? true : false;
-    }
-
-    function setFeeCollector(
-        address feeCollector
-    )   external
-        onlyAdmin
-        returns (bool)
-    {
-        s.feeCollector = feeCollector;
+        s.isAdmin[_account] = _enabled;
         return true;
     }
 
-    function getWhitelistStatus(
-        address account
+    function setUpkeep(
+        address _account,
+        uint8   _enabled
     )   external
-        view
+        onlyAdmin
         returns (bool)
     {
-        return s.isWhitelisted[account] == 1 ? true : false;
+        s.isUpkeep[_account] = _enabled;
+        return true;
+    }
+
+    function setFeeCollector(
+        address _account
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        s.feeCollector = _account;
+        return true;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                GETTERS
+    //////////////////////////////////////////////////////////////*/
+
+    function getWhitelistStatus(
+        address _account
+    )   external
+        view
+        returns (uint8)
+    {
+        return s.isWhitelisted[_account];
     }
 
     function getAdminStatus(
-        address account
+        address _account
     )   external
         view
-        returns (bool)
+        returns (uint8)
     {
-        return s.isAdmin[account] == 1 ? true : false;
+        return s.isAdmin[_account];
     }
 
     function getWhitelisterStatus(
-        address account
+        address _account
     )   external
         view
-        returns (bool)
+        returns (uint8)
     {
-        return s.isWhitelister[account] == 1 ? true : false;
+        return s.isWhitelister[_account];
     }
 
     function getUpkeepStatus(
-        address account
+        address _account
     )   external
         view
-        returns (bool)
+        returns (uint8)
     {
-        return s.isUpkeep[account] == 1 ? true : false;
+        return s.isUpkeep[_account];
     }
 
-    function getFeeCollectorStatus(
-        address account
+    function getFeeCollector(
     )   external
         view
-        returns (bool)
+        returns (address)
     {
-        return account == s.feeCollector ? true : false;
+        return s.feeCollector;
     }
 }

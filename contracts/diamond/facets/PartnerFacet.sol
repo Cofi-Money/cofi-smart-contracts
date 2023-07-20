@@ -1,29 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Modifiers, DerivParams } from "../libs/LibAppStorage.sol";
+import { LibToken } from "../libs/LibToken.sol";
+import { LibVault } from "../libs/LibVault.sol";
+import { IERC4626 } from ".././interfaces/IERC4626.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import ".././interfaces/beefy/ISwap.sol";
+
 /**
 
     █▀▀ █▀█ █▀▀ █
     █▄▄ █▄█ █▀░ █
 
-    @author The Stoa Corporation Ltd.
+    @author Sam Goodenough, The Stoa Corporation Ltd.
     @title  Partner Facet
-    @notice Custom functions to enable integration wit certain vaults.
+    @notice Custom functions to enable integration with certain vaults.
     @dev    Functions are organised as (k, v) mappings, where the vault is the key.
             Motivation in doing so is to avoid a look-up implementation and trigger
             the function directly.
-            One caveat of calling via the low-level 'call()' operation, passing
+            One caveat of calling via the low-level "call()" operation, passing
             the bytes4 function selector, is that functions must be accessible
             externally. Therefore, to prevent external calls, a modifier 
-            "EXTGuard" has been implemented.
+            "extGuard" has been implemented.
  */
-
-import { Modifiers, DerivParams } from '../libs/LibAppStorage.sol';
-import { LibToken } from '../libs/LibToken.sol';
-import { LibVault } from '../libs/LibVault.sol';
-import { IERC4626 } from '.././interfaces/IERC4626.sol';
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import ".././interfaces/beefy/ISwap.sol";
 
 contract PartnerFacet is Modifiers {
 
@@ -32,19 +32,19 @@ contract PartnerFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     function toDeriv_BeefyHop(
-        address fiAsset,
-        uint256 amount
-    ) public EXTGuard {
+        address _fi,
+        uint256 _amount
+    ) public extGuard {
 
         SafeERC20.safeApprove(
-            IERC20(s.underlying[fiAsset]),   // Approve USDC spend.
-            s.derivParams[s.vault[fiAsset]].spender,
-            amount
+            IERC20(s.underlying[_fi]),   // Approve USDC spend.
+            s.derivParams[s.vault[_fi]].spender,
+            _amount
         );
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = amount;
-        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[fiAsset]].spender).addLiquidity(
+        amounts[0] = _amount;
+        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[_fi]].spender).addLiquidity(
             amounts,
             0,
             block.timestamp + 7 days
@@ -52,17 +52,17 @@ contract PartnerFacet is Modifiers {
     }
 
     function toUnderlying_BeefyHop(
-        address fiAsset,
-        uint256 amount
-    ) public EXTGuard {
+        address _fi,
+        uint256 _amount
+    ) public extGuard {
 
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[fiAsset]).asset()),  // Approve HOP-USDC-LP spend.
-            s.derivParams[s.vault[fiAsset]].spender,
-            amount
+            IERC20(IERC4626(s.vault[_fi]).asset()),  // Approve HOP-USDC-LP spend.
+            s.derivParams[s.vault[_fi]].spender,
+            _amount
         );
-        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[fiAsset]].spender).removeLiquidityOneToken(
-            amount,
+        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[_fi]].spender).removeLiquidityOneToken(
+            _amount,
             0,
             0,
             block.timestamp + 7 days
@@ -70,25 +70,25 @@ contract PartnerFacet is Modifiers {
     }
 
     function convertToUnderlying_BeefyHop(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) public {
 
-        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[fiAsset]].spender).calculateRemoveLiquidityOneToken(
+        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[_fi]].spender).calculateRemoveLiquidityOneToken(
             address(this),
-            amount,
+            _amount,
             0
         );
     }
 
     function convertToDeriv_BeefyHop(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) public {
 
         uint256[] memory amounts = new uint256[](2);
-        amounts[0] = LibToken._toUnderlyingDecimals(fiAsset, amount);
-        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[fiAsset]].spender).calculateTokenAmount(
+        amounts[0] = LibToken._toUnderlyingDecimals(_fi, _amount);
+        s.RETURN_ASSETS = ISwap(s.derivParams[s.vault[_fi]].spender).calculateTokenAmount(
             address(this),
             amounts,
             false
@@ -100,81 +100,81 @@ contract PartnerFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     function setToDeriv(
-        address vault,
-        string memory _toDeriv
+        address         _vault,
+        string memory   _toDeriv
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].toDeriv = bytes4(keccak256(bytes(_toDeriv)));
+        s.derivParams[_vault].toDeriv = bytes4(keccak256(bytes(_toDeriv)));
         return true;
     }
 
     function setToUnderlying(
-        address vault,
-        string memory _toUnderlying
+        address         _vault,
+        string memory   _toUnderlying
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].toDeriv = bytes4(keccak256(bytes(_toUnderlying)));
+        s.derivParams[_vault].toDeriv = bytes4(keccak256(bytes(_toUnderlying)));
         return true;
     }
 
     function setConvertToDeriv(
-        address vault,
-        string memory _convertToDeriv
+        address         _vault,
+        string memory   _convertToDeriv
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].toDeriv = bytes4(keccak256(bytes(_convertToDeriv)));
+        s.derivParams[_vault].toDeriv = bytes4(keccak256(bytes(_convertToDeriv)));
         return true;
     }
 
     function setConvertToUnderlying(
-        address vault,
-        string memory _convertToUnderlying
+        address         _vault,
+        string memory   _convertToUnderlying
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].toDeriv = bytes4(keccak256(bytes(_convertToUnderlying)));
+        s.derivParams[_vault].toDeriv = bytes4(keccak256(bytes(_convertToUnderlying)));
         return true;
     }
 
     function setAdd(
-        address vault,
-        address[] memory _add
+        address             _vault,
+        address[] memory    _add
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].add = _add;
+        s.derivParams[_vault].add = _add;
         return true;
     }
 
     function setNum(
-        address vault,
-        uint256[] memory _num
+        address             _vault,
+        uint256[] memory    _num
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.derivParams[vault].num = _num;
+        s.derivParams[_vault].num = _num;
         return true;
     }
 
     /*//////////////////////////////////////////////////////////////
-                                VIEWS
+                                GETTERS
     //////////////////////////////////////////////////////////////*/
 
     function getDerivParams(
-        address vault
+        address _vault
     )   external
         view
         returns (DerivParams memory)
     {
-        return s.derivParams[vault];
+        return s.derivParams[_vault];
     }
 }

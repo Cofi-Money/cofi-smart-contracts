@@ -1,16 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/**
-
-    █▀▀ █▀█ █▀▀ █
-    █▄▄ █▄█ █▀░ █
-
-    @author The Stoa Corporation Ltd.
-    @title  Point Facet
-    @notice Provides logic for managing points.
- */
-
 import { Modifiers } from '../libs/LibAppStorage.sol';
 import { LibToken } from '../libs/LibToken.sol';
 import { LibReward } from '../libs/LibReward.sol';
@@ -18,15 +8,25 @@ import { PercentageMath } from '../libs/external/PercentageMath.sol';
 import { IERC4626 } from '../interfaces/IERC4626.sol';
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+/**
+
+    █▀▀ █▀█ █▀▀ █
+    █▄▄ █▄█ █▀░ █
+
+    @author Sam Goodenough, The Stoa Corporation Ltd.
+    @title  Point Facet
+    @notice Provides logic for managing points.
+ */
+
 contract PointFacet is Modifiers {
     using PercentageMath for uint256;
 
     /*//////////////////////////////////////////////////////////////
-                            STATE CHANGE
+                            REWARDS MANAGEMENT
     //////////////////////////////////////////////////////////////*/
 
     /// @notice This function must be called after the last rebase of a pointsRate
-    ///         and before the application of a new pointsRate for a given fiAsset,
+    ///         and before the application of a new pointsRate for a given fi token,
     ///         for every account that is eliigble for yield/points. If not, the new
     ///         pointsRate will apply to yield earned during the previous, different
     ///         pointsRate epoch - which we want to avoid.
@@ -35,14 +35,14 @@ contract PointFacet is Modifiers {
     ///         size limit for passing addresses, in order for all relevant accounts
     ///         to be updated.
     ///
-    /// @dev    Rebasing for the relevant fiAsset should be paused beforehand so as to
+    /// @dev    Rebasing for the relevant fi token should be paused beforehand so as to
     ///         not interupt this process.
     ///
-    /// @param  accounts    The array of accounts to capture points for.
-    /// @param  fiAsset     The fiAsset to capture points for.
+    /// @param  _accounts   The array of accounts to capture points for.
+    /// @param  _fi         The fi token to capture points for.
     function captureYieldPoints(
-        address[] memory    accounts,
-        address             fiAsset
+        address[] memory    _accounts,
+        address             _fi
     )   external
         returns (bool)
     {
@@ -64,14 +64,14 @@ contract PointFacet is Modifiers {
             4.  Start with empty array for next points epoch.
          */
         uint256 yield;
-        for(uint i = 0; i < accounts.length; ++i) {
-        yield = LibToken._getYieldEarned(accounts[i], fiAsset);
+        for(uint i = 0; i < _accounts.length; ++i) {
+        yield = LibToken._getYieldEarned(_accounts[i], _fi);
             // If the account has earned yield since the last yield capture event.
-            if (s.YPC[accounts[i]][fiAsset].yield < yield) {
-                s.YPC[accounts[i]][fiAsset].points +=
-                    (yield - s.YPC[accounts[i]][fiAsset].yield)
-                        .percentMul(s.pointsRate[fiAsset]);
-                s.YPC[accounts[i]][fiAsset].yield = yield;
+            if (s.YPC[_accounts[i]][_fi].yield < yield) {
+                s.YPC[_accounts[i]][_fi].points +=
+                    (yield - s.YPC[_accounts[i]][_fi].yield)
+                        .percentMul(s.pointsRate[_fi]);
+                s.YPC[_accounts[i]][_fi].yield = yield;
             }
         }
         return true;
@@ -79,98 +79,102 @@ contract PointFacet is Modifiers {
 
     /// @notice Function for distributing points not intrinsically linked to yield.
     ///
-    /// @param  accounts    The array of accounts to distribute points for.
-    /// @param  points      The amount of points to distribute to each account.
+    /// @param  _accounts   The array of accounts to distribute points for.
+    /// @param  _amount     The amount of points to distribute to each account.
     function reward(
-        address[] memory    accounts,
-        uint256             points
+        address[] memory    _accounts,
+        uint256             _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        for(uint i = 0; i < accounts.length; ++i) {
-            LibReward._reward(accounts[i], points);
+        for(uint i = 0; i < _accounts.length; ++i) {
+            LibReward._reward(_accounts[i], _amount);
         }
         return true;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            ADMIN - SETTERS
+    //////////////////////////////////////////////////////////////*/
+
     /// @dev    Yield points must be captured beforehand to ensure they
     ///         have updated correctly prior to a pointsRate change.
     function setPointsRate(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.pointsRate[fiAsset] = amount;
+        s.pointsRate[_fi] = _amount;
         return true;
     }
 
     /// @dev Setting to 0 deactivates.
     function setInitReward(
-        uint256 amount
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.initReward = amount;
+        s.initReward = _amount;
         return true;
     }
 
     /// @dev Setting to 0 deactivates.
     function setReferReward(
-        uint256 amount
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.referReward = amount;
+        s.referReward = _amount;
         return true;
     }
 
     function setRewardStatus(
-        address account,
-        uint8   initClaimed,
-        uint8   referClaimed,
-        uint8   referDisabled
+        address _account,
+        uint8   _initClaimed,
+        uint8   _referClaimed,
+        uint8   _referDisabled
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.rewardStatus[account].initClaimed     = initClaimed;
-        s.rewardStatus[account].referClaimed    = referClaimed;
-        s.rewardStatus[account].referDisabled   = referDisabled;
+        s.rewardStatus[_account].initClaimed    = _initClaimed;
+        s.rewardStatus[_account].referClaimed   = _referClaimed;
+        s.rewardStatus[_account].referDisabled  = _referDisabled;
         return true;
     }
 
     /*//////////////////////////////////////////////////////////////
-                                VIEWS
+                                GETTERS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Returns the total number of points accrued for a given account
     ///         (accrued through yield earnings and other means).
     ///
-    /// @param  account     The address to enquire for.
-    /// @param  fiAssets    An array of fiAssets to retrieve data for.
+    /// @param  _account    The address to enquire for.
+    /// @param  _fi         An array of fi tokens to retrieve data for.
     function getPoints(
-        address             account,
-        address[] memory    fiAssets
+        address             _account,
+        address[] memory    _fi
     )   public
         view
         returns (uint256 pointsTotal)
     {
-        pointsTotal = getYieldPoints(account, fiAssets) + s.XPC[account];
+        pointsTotal = getYieldPoints(_account, _fi) + s.XPC[_account];
     }
 
     /// @notice Returns the number of points accrued, through yield earnings, across
-    ///         a given number of fiAssets (e.g., [COFI, COFIE]).
+    ///         a given number of fi tokens (e.g., [fiUSD, fiETH, fiBTC]).
     ///
-    /// @param  account     The address to enquire for.
-    /// @param  fiAssets    An array of fiAssets to retrieve data for.
+    /// @param  _account    The address to enquire for.
+    /// @param  _fi         An array of fi tokens to retrieve yield points for.
     function getYieldPoints(
-        address             account,
-        address[] memory    fiAssets
+        address             _account,
+        address[] memory    _fi
     )   public
         view
         returns (uint256 pointsTotal)
@@ -179,32 +183,32 @@ contract PointFacet is Modifiers {
         uint256 pointsCaptured;
         uint256 pointsPending;
 
-        for(uint i = 0; i < fiAssets.length; ++i) {
-            yield           += LibToken._getYieldEarned(account, fiAssets[i]);
-            pointsCaptured  += s.YPC[account][fiAssets[i]].points;
-            pointsPending   += (yield - s.YPC[account][fiAssets[i]].yield)
-                .percentMul(s.pointsRate[fiAssets[i]]);
+        for(uint i = 0; i < _fi.length; ++i) {
+            yield           += LibToken._getYieldEarned(_account, _fi[i]);
+            pointsCaptured  += s.YPC[_account][_fi[i]].points;
+            pointsPending   += (yield - s.YPC[_account][_fi[i]].yield)
+                .percentMul(s.pointsRate[_fi[i]]);
             pointsTotal     += pointsCaptured + pointsPending;
         }
     }
 
     function getExternalPoints(
-        address account
+        address _account
     )   public
         view
         returns (uint256)
     {
-        return s.XPC[account];
+        return s.XPC[_account];
     }
 
     /// @return The pointsRate denominated in basis points.
     function getPointsRate(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.pointsRate[fiAsset];
+        return s.pointsRate[_fi];
     }
 
     function getInitReward(
@@ -224,15 +228,15 @@ contract PointFacet is Modifiers {
     }
 
     function getRewardStatus(
-        address account
+        address _account
     )   external
         view
         returns (uint8, uint8, uint8)
     {
         return (
-            s.rewardStatus[account].initClaimed,
-            s.rewardStatus[account].referClaimed,
-            s.rewardStatus[account].referDisabled
+            s.rewardStatus[_account].initClaimed,
+            s.rewardStatus[_account].referClaimed,
+            s.rewardStatus[_account].referDisabled
         );
     }
 }

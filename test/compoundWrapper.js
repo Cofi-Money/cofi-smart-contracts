@@ -34,10 +34,14 @@ describe("Test Compound custom wrapper", function() {
             OP_Addr,
             SOWBTC_Addr,
             COMPTROLLER_Addr,
-            (await owner.getAddress())
+            "0xd702dd976fb76fffc2d3963d037dfdae5b04e593", // BTC price feed
+            (await owner.getAddress()),
+            "1000000000000000000", // amountInMin = 1 OP
+            "200", // slippage = 2%
+            "12" // wait = 12 seconds
         )
 
-        // Initial deposit
+        /* Initial deposit */
         const whaleBtc = await ethers.getImpersonatedSigner("0x456325F2AC7067234dD71E01bebe032B0255e039")
         const _wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(whaleBtc)
         await _wbtc.transfer(await owner.getAddress(), "50000000") // 0.5 wBTC
@@ -50,15 +54,6 @@ describe("Test Compound custom wrapper", function() {
         // soWBTC contract
         const sowBTC = (await ethers.getContractAt(SOWBTC_ABI, SOWBTC_Addr)).connect(signer)
 
-        return {
-            owner, signer, wsoBTC, sowBTC, wbtc
-        }
-    }
-
-    it("Should deposit", async function() {
-
-        const { owner, signer, wsoBTC, sowBTC, wbtc } = await loadFixture(deploy)
-
         const t0_wsoBTCBal = await wsoBTC.balanceOf(await owner.getAddress())
         // Preview how much wBTC Owner should redeem
         const t0_wbtcBal = await wsoBTC.previewRedeem(t0_wsoBTCBal.toString())
@@ -70,14 +65,25 @@ describe("Test Compound custom wrapper", function() {
         // Set up executable harvest
         const whaleOp = await ethers.getImpersonatedSigner("0x82326a9E6BD66e51a4c2c29168B10A1853Fc9Af7")
         const _op = (await ethers.getContractAt(OP_ABI, OP_Addr)).connect(whaleOp)
-        await _op.transfer(await wsoBTC.getAddress(), "10000000000000000000000") // 10,000 OP
+        await _op.transfer(await wsoBTC.getAddress(), "100000000000000000000") // 100 OP
         console.log("Transferred OP to wrapper")
 
+        // Set swap route
         await wsoBTC.setRoute("3000", WETH_Addr, "3000")
         console.log("Set route")
 
-        // Harvest
-        await wsoBTC.harvest("0")
+        return {
+            owner, signer, wsoBTC, sowBTC, wbtc, _op, _wbtc
+        }
+    }
+
+    it("Should harvest with swap and redeem", async function() {
+
+        // wsoBTC => sowBTC => wBTC
+        const { owner, wsoBTC, sowBTC, wbtc } = await loadFixture(deploy)
+
+        /* Harvest */
+        await wsoBTC.harvest()
 
         // wsoBTC balance is unchanged
         const t1_wsoBTCBal = await wsoBTC.balanceOf(await owner.getAddress())
@@ -88,9 +94,45 @@ describe("Test Compound custom wrapper", function() {
         console.log("t1 Owner wsoBTC bal: " + t1_wsoBTCBal.toString())
         console.log("t1 Owner wBTC bal: " + t1_wbtcBal.toString())
 
-        await wsoBTC.redeem(t1_wsoBTCBal.toString(), owner.getAddress(), owner.getAddress())
+        await wsoBTC.redeem("25000000", owner.getAddress(), owner.getAddress())
 
         const t2_wbtcBal = await wbtc.balanceOf(owner.getAddress())
         console.log("t2 Owner wBTC bal: " + t2_wbtcBal.toString())
+    })
+
+    it("Should harvest with swap disabled and redeem", async function() {
+
+        // wsoBTC => sowBTC => wBTC
+        const { owner, wsoBTC, sowBTC, wbtc, _wbtc } = await loadFixture(deploy)
+
+        // Disable swap route
+        await wsoBTC.setEnabled("0")
+    
+        _wbtc.transfer(wsoBTC.getAddress(), "10000000") // 0.1 wBTC
+        const t1_wrapperWbtcBal = await wbtc.balanceOf(wsoBTC.getAddress())
+        console.log("t1 Wrapper wBTC bal: " + t1_wrapperWbtcBal.toString())
+        // For some reason this contract instance only shows the bal increase
+        // despite both instances referring to the same contract.
+        const t1_wrapperWbtcBal_ = await _wbtc.balanceOf(wsoBTC.getAddress())
+        console.log("t1 Wrapper wBTC bal: " + t1_wrapperWbtcBal_.toString())
+
+        /* Harvest */
+        await wsoBTC.harvest()
+        const t2_wrapperWbtcBal = await wbtc.balanceOf(wsoBTC.getAddress())
+        console.log("t2 Wrapper wBTC bal: " + t2_wrapperWbtcBal.toString())
+
+        // wsoBTC balance is unchanged
+        const t2_wsoBTCBal = await wsoBTC.balanceOf(await owner.getAddress())
+        // Preview how much wBTC Owner should redeem
+        const t2_wbtcBal = await wsoBTC.previewRedeem(t2_wsoBTCBal.toString())
+        
+        // Post-harvest balance
+        console.log("t2 Owner wsoBTC bal: " + t2_wsoBTCBal.toString())
+        console.log("t2 Owner wBTC bal: " + t2_wbtcBal.toString())
+
+        await wsoBTC.redeem("25000000", owner.getAddress(), owner.getAddress())
+
+        const t3_wbtcBal = await wbtc.balanceOf(owner.getAddress())
+        console.log("t3 Owner wBTC bal: " + t3_wbtcBal.toString())
     })
 })

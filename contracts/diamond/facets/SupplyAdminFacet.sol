@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { Modifiers } from '../libs/LibAppStorage.sol';
+import { IERC4626 } from '.././interfaces/IERC4626.sol';
+
 /**
 
     █▀▀ █▀█ █▀▀ █
     █▄▄ █▄█ █▀░ █
 
-    @author The Stoa Corporation Ltd.
+    @author Sam Goodenough, The Stoa Corporation Ltd.
     @title  Supply Admin Facet
-    @notice Separated Admin setters and views for SupplyFacet.
+    @notice Separated admin setters and views for SupplyFacet.
  */
-
-import { Modifiers } from '../libs/LibAppStorage.sol';
-import { IERC4626 } from '.././interfaces/IERC4626.sol';
 
 contract SupplyAdminFacet is Modifiers {
 
@@ -20,95 +20,96 @@ contract SupplyAdminFacet is Modifiers {
                             ADMIN - SETTERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev    Set user-non-executable vars first such as minDeposit, mintFee, etc.
-    ///         (ref to COFI STABLECOIN PARAMS in AppStorage for full list).
+    /// @dev    Set COFI stablecoin vars first before onboarding (refer to LibAppStorage.sol).
     function onboardAsset(
-        address fiAsset,
-        address underlying,
-        address vault
+        address _fi,
+        address _underlying,
+        address _vault
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.underlying[fiAsset] = underlying;
-        s.vault[fiAsset] = vault;
+        s.underlying[_fi] = _underlying;
+        s.vault[_fi] = _vault;
         return true;
     }
 
-    /// @notice minDeposit applies to the underlyingAsset mapped to the fiAsset (e.g., USDC).
+    /// @notice "minDeposit" applies to the amount of underlying tokens required for deposit.
     function setMinDeposit(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _underlyingInMin
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.minDeposit[fiAsset] = amount;
+        s.minDeposit[_fi] = _underlyingInMin;
         return true;
     }
 
-    /// @notice minWithdraw applies to the underlyingAsset mapped to the fiAsset (e.g., USDC).
+    /// @notice "minWithdraw" applies to the amount of underlying tokens redeemed.
     function setMinWithdraw(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _underlyingOutMin
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.minWithdraw[fiAsset] = amount;
+        s.minWithdraw[_fi] = _underlyingOutMin;
         return true;
     }
 
     function setMintFee(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.mintFee[fiAsset] = amount;
+        s.mintFee[_fi] = _amount;
         return true;
     }
 
-    function toggleMintEnabled(
-        address fiAsset
+    function setMintEnabled(
+        address _fi,
+        uint8   _enabled
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.mintEnabled[fiAsset] = s.mintEnabled[fiAsset] == 0 ? 1 : 0;
-        return s.mintEnabled[fiAsset] == 1 ? true : false;
+        s.mintEnabled[_fi] = _enabled;
+        return true;
     }
 
     function setRedeemFee(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.redeemFee[fiAsset] = amount;
+        s.redeemFee[_fi] = _amount;
         return true;
     }
 
-    function toggleRedeemEnabled(
-        address fiAsset
+    function setRedeemEnabled(
+        address _fi,
+        uint8   _enabled
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.redeemEnabled[fiAsset] = s.redeemEnabled[fiAsset] == 0 ? 1 : 0;
-        return s.redeemEnabled[fiAsset] == 1 ? true : false;
+        s.redeemEnabled[_fi] = _enabled;
+        return true;
     }
 
     function setServiceFee(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.serviceFee[fiAsset] = amount;
+        s.serviceFee[_fi] = _amount;
         return true;
     }
 
@@ -117,89 +118,85 @@ contract SupplyAdminFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     function getMinDeposit(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.minDeposit[fiAsset];
+        return s.minDeposit[_fi];
     }
 
     function getMinWithdraw(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.minWithdraw[fiAsset];
+        return s.minWithdraw[_fi];
     }
 
     function getMintFee(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.mintFee[fiAsset];
+        return s.mintFee[_fi];
     }
 
     function getMintEnabled(
-        address fiAsset
+        address _fi
     )   external
         view
-        returns (bool)
+        returns (uint8)
     {
-        return s.mintEnabled[fiAsset] == 1 ? true : false;
+        return s.mintEnabled[_fi];
     }
 
     function getRedeemFee(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.redeemFee[fiAsset];
+        return s.redeemFee[_fi];
     }
 
     function getRedeemEnabled(
-        address fiAsset
+        address _fi
     )   external
         view
-        returns (bool)
+        returns (uint8)
     {
-        return s.redeemEnabled[fiAsset] == 1 ? true : false;
+        return s.redeemEnabled[_fi];
     }
 
     function getServiceFee(
-        address fiAsset
+        address _fi
     )   external
         view
         returns (uint256)
     {
-        return s.serviceFee[fiAsset];
+        return s.serviceFee[_fi];
     }
 
-    /// @notice Returns the underlyingAsset (variable) for a given fiAsset.
-    ///
-    /// @param  fiAsset The fiAsset to query for.
-    function getUnderlyingAsset(
-        address fiAsset
+    /// @notice Returns the underlying token for a given fi token.
+    function getUnderlying(
+        address _fi
     )   external
         view
         returns (address)
     {
-        return IERC4626(s.vault[fiAsset]).asset();
+        return IERC4626(s.vault[_fi]).asset();
     }
 
-    /// @notice Returns the yieldAsset (variable) for a given fiAsset.
-    ///
-    /// @param  fiAsset The fiAsset to query for. 
-    function getYieldAsset(
-        address fiAsset
+    /// @notice Returns the vault for a given fi token.
+    function getVault(
+        address _fi
     )   external
         view
         returns (address)
     {
-        return s.vault[fiAsset];
+        return s.vault[_fi];
     }
 }

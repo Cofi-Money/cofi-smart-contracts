@@ -24,11 +24,11 @@ const StakingRewards_YVETH_Addr = "0xE35Fec3895Dcecc7d2a91e8ae4fF3c0d43ebfFE0"
 
 /* Swap Params */
 
-const minHarvest = "1000000000000000000" // 1 OP
+const getRewardMin = "1000000000000000000" // 1 OP
+const amountInMin = "1000000000000000000" // 1 OP
 const slippage = "200" // 2%
 const wait = "12" // 12 seconds
 const poolFee = "3000" // 0.3%
-const enabled = "1"
 
 describe("Test Yearn custom wrappers", function() {
 
@@ -48,11 +48,11 @@ describe("Test Yearn custom wrappers", function() {
             StakingRewards_YVUSDC_Addr,
             "0x0000000000000000000000000000000000000000",
             USDC_Addr,
-            minHarvest,
+            getRewardMin,
+            amountInMin,
             slippage,
             wait,
             poolFee,
-            enabled,
             {gasLimit: "30000000"}
         )
         await wyvUSDC.waitForDeployment()
@@ -65,17 +65,17 @@ describe("Test Yearn custom wrappers", function() {
             StakingRewards_YVETH_Addr,
             "0x13e3Ee699D1909E989722E753853AE30b17e08c5", // ETH price feed
             WETH_Addr,
-            minHarvest,
+            getRewardMin,
+            amountInMin,
             slippage,
             wait,
             poolFee,
-            enabled,
             {gasLimit: "30000000"}
         )
         await wyvETH.waitForDeployment()
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
 
-        // Initial deposit
+        /* Initial deposit */
         const whaleUsdcEth = await ethers.getImpersonatedSigner("0xee55c2100C3828875E0D65194311B8eF0372C6d9")
         const _usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleUsdcEth)
         await _usdc.transfer(await owner.getAddress(), "1000000000") // 1,000 USDC
@@ -106,15 +106,6 @@ describe("Test Yearn custom wrappers", function() {
             YVETH_Addr
         )).connect(signer)
 
-        return {
-            owner, signer, wyvUSDC, wyvETH, usdc, weth, yvUSDC, yvETH
-        }
-    }
-
-    it("Should swap reward for want and reinvest", async function() {
-
-        const { owner, signer, wyvUSDC, wyvETH, usdc, weth, yvUSDC, yvETH } = await loadFixture(deploy)
-
         const t0_wyvUSDCBal = await wyvUSDC.balanceOf(await owner.getAddress())
         // Preview how much yvUSDC Owner should redeem
         const t0_yvUSDCBal = await wyvUSDC.previewRedeem(t0_wyvUSDCBal.toString())
@@ -135,7 +126,16 @@ describe("Test Yearn custom wrappers", function() {
         await _op.transfer(await wyvUSDC.getAddress(), "1010000000000000000") // 1.01 OP
         await _op.transfer(await wyvETH.getAddress(), "1010000000000000000") // 1.01 OP
 
-        // Harvest
+        return {
+            owner, signer, wyvUSDC, wyvETH, usdc, weth, _usdc, _weth, yvUSDC, yvETH
+        }
+    }
+
+    it("Should swap reward for want and reinvest", async function() {
+
+        const { owner, wyvUSDC, wyvETH, usdc, weth } = await loadFixture(deploy)
+
+        /* Harvest */
         await wyvUSDC.harvest()
         await wyvETH.harvest()
 
@@ -151,5 +151,67 @@ describe("Test Yearn custom wrappers", function() {
         console.log("t1 Owner yvUSDC bal: " + t1_yvUSDCBal.toString())
         console.log("t1 Owner wyvETH bal: " + t1_wyvETHBal.toString())
         console.log("t1 Owner yvETH bal: " + t1_yvETHBal.toString())
+
+        /* Redemption */
+        await wyvUSDC.redeem(t1_wyvUSDCBal.toString(), owner.getAddress(), owner.getAddress())
+        await wyvETH.redeem(t1_wyvETHBal.toString(), owner.getAddress(), owner.getAddress())
+
+        const t2_wyvUSDCBal = await wyvUSDC.balanceOf(owner.getAddress())
+        const t2_wyvETHBal = await wyvETH.balanceOf(owner.getAddress())
+        const t2_USDCBal = await usdc.balanceOf(owner.getAddress())
+        const t2_wETHBal = await weth.balanceOf(owner.getAddress())
+
+        console.log("t2 Owner wyvUSDC bal: " + t2_wyvUSDCBal.toString())
+        console.log("t2 Owner wyvETH bal: " + t2_wyvETHBal.toString())
+        console.log("t2 Owner USDC bal: " + t2_USDCBal.toString())
+        console.log("t2 Owner wETH bal: " + t2_wETHBal.toString())
+    })
+
+    it("Should allow for manual reinvesting", async function() {
+
+        const { owner, wyvUSDC, wyvETH, usdc, weth, _usdc, _weth } = await loadFixture(deploy)
+
+        // Get reward from wrapper
+        await wyvUSDC.recoverERC20(OP_Addr, "1")
+        console.log("Claimed rewards")
+
+        // Simulate manual swap by transferring assets to respective wrapper contract
+        _usdc.transfer(wyvUSDC.getAddress(), "100000000") // 100 USDC
+        _weth.transfer(wyvETH.getAddress(), "50000000000000000") // 0.05 wETH
+
+        // Set swap-enabled to 0 to do harvest without swap operation
+        await wyvUSDC.setEnabled("0")
+        await wyvETH.setEnabled("0")
+
+        /* Harvest */
+        await wyvUSDC.harvest()
+        await wyvETH.harvest()
+
+        const t1_wyvUSDCBal = await wyvUSDC.balanceOf(await owner.getAddress())
+        // Preview how much yvUSDC Owner should redeem
+        const t1_yvUSDCBal = await wyvUSDC.previewRedeem(t1_wyvUSDCBal.toString())
+        const t1_wyvETHBal = await wyvETH.balanceOf(await owner.getAddress())
+        // Preview how much yvUSDC Owner should redeem
+        const t1_yvETHBal = await wyvETH.previewRedeem(t1_wyvETHBal.toString())
+
+        // Post-harvest balance
+        console.log("t1 Owner wyvUSDC bal: " + t1_wyvUSDCBal.toString())
+        console.log("t1 Owner yvUSDC bal: " + t1_yvUSDCBal.toString())
+        console.log("t1 Owner wyvETH bal: " + t1_wyvETHBal.toString())
+        console.log("t1 Owner yvETH bal: " + t1_yvETHBal.toString())
+
+        /* Redemption */
+        await wyvUSDC.redeem(t1_wyvUSDCBal.toString(), owner.getAddress(), owner.getAddress())
+        await wyvETH.redeem(t1_wyvETHBal.toString(), owner.getAddress(), owner.getAddress())
+
+        const t2_wyvUSDCBal = await wyvUSDC.balanceOf(owner.getAddress())
+        const t2_wyvETHBal = await wyvETH.balanceOf(owner.getAddress())
+        const t2_USDCBal = await usdc.balanceOf(owner.getAddress())
+        const t2_wETHBal = await weth.balanceOf(owner.getAddress())
+
+        console.log("t2 Owner wyvUSDC bal: " + t2_wyvUSDCBal.toString())
+        console.log("t2 Owner wyvETH bal: " + t2_wyvETHBal.toString())
+        console.log("t2 Owner USDC bal: " + t2_USDCBal.toString())
+        console.log("t2 Owner wETH bal: " + t2_wETHBal.toString())
     })
 })

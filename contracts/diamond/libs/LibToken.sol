@@ -13,34 +13,34 @@ library LibToken {
 
     /// @notice Emitted when a transfer is executed.
     ///
-    /// @param  asset           The asset transferred (underlyingAsset, yieldAsset, or fiAsset).
+    /// @param  asset           The asset transferred (underlying, share, or fi token).
     /// @param  amount          The amount transferred.
     /// @param  transferFrom    The account the asset was transferred from.
     /// @param  recipient       The recipient of the transfer.
     event Transfer(address indexed asset, uint256 amount, address indexed transferFrom, address indexed recipient);
 
-    /// @notice Emitted when a fiAsset is minted.
+    /// @notice Emitted when a fi is minted.
     ///
-    /// @param  fiAsset The address of the minted fiAsset.
-    /// @param  amount  The amount of fiAssets minted.
-    /// @param  to      The recipient of the minted fiAssets.
-    event Mint(address indexed fiAsset, uint256 amount, address indexed to);
+    /// @param  fi      The address of the minted fi token.
+    /// @param  amount  The amount of fis minted.
+    /// @param  to      The recipient of the minted fis.
+    event Mint(address indexed fi, uint256 amount, address indexed to);
 
-    /// @notice Emitted when a fiAsset is burned.
+    /// @notice Emitted when a fi is burned.
     ///
-    /// @param  fiAsset The address of the burned fiAsset.
-    /// @param  amount  The amount of fiAssets burned.
+    /// @param  fi      The address of the burned fi.
+    /// @param  amount  The amount of fis burned.
     /// @param  from    The account burned from.
-    event Burn(address indexed fiAsset, uint256 amount, address indexed from);
+    event Burn(address indexed fi, uint256 amount, address indexed from);
 
-    /// @notice Emitted when a fiAsset supply update is executed.
+    /// @notice Emitted when a fi supply update is executed.
     ///
-    /// @param  fiAsset The fiAsset with updated supply.
+    /// @param  fi      The fi token with updated supply.
     /// @param  assets  The new total supply.
     /// @param  yield   The amount of yield added.
-    /// @param  rCPT    Rebasing credits per token of fiAsset contract (used to calc interest rate).
+    /// @param  rCPT    Rebasing credits per token of FiToken.sol contract (used to calc interest rate).
     /// @param  fee     The service fee captured, which is a share of the yield generated.
-    event TotalSupplyUpdated(address indexed fiAsset, uint256 assets, uint256 yield, uint256 rCPT, uint256 fee);
+    event TotalSupplyUpdated(address indexed fi, uint256 assets, uint256 yield, uint256 rCPT, uint256 fee);
 
     /// @notice Emitted when a deposit action is executed.
     ///
@@ -54,207 +54,230 @@ library LibToken {
     ///
     /// @param  asset       The asset being withdrawn (e.g., USDC).
     /// @param  amount      The amount withdrawn.
-    /// @param  depositFrom The account fiAssets were transferred from.
+    /// @param  depositFrom The account fi tokens were transferred from.
     /// @param  fee         The redeem fee captured.
     event Withdraw(address indexed asset, uint256 amount, address indexed depositFrom, uint256 fee);
 
-    /// @notice Executes a transferFrom operation in the context of Stoa.
+    /// @notice Executes a transferFrom operation in the context of COFI.
     ///
-    /// @param  asset           The asset to transfer.
-    /// @param  amount          The amount to transfer.
-    /// @param  transferFrom    The account to transfer from, must have approved spender.
-    /// @param  recipient       The recipient of the transfer.
+    /// @param  _asset      The asset to transfer.
+    /// @param  _amount     The amount to transfer.
+    /// @param  _sender     The account to transfer from, must have approved spender.
+    /// @param  _recipient  The recipient of the transfer.
     function _transferFrom(
-        address asset,
-        uint256 amount,
-        address transferFrom,
-        address recipient
+        address _asset,
+        uint256 _amount,
+        address _sender,
+        address _recipient
     )   internal {
 
         SafeERC20.safeTransferFrom(
-            IERC20(asset),
-            transferFrom,
-            recipient,
-            amount
+            IERC20(_asset),
+            _sender,
+            _recipient,
+            _amount
         );
-        emit Transfer(asset, amount, transferFrom, recipient);
+        emit Transfer(_asset, _amount, _sender, _recipient);
     }
 
     /// @notice Executes a transfer operation in the context of Stoa.
     ///
-    /// @param  asset       The asset to transfer.
-    /// @param  amount      The amount to transfer.
-    /// @param  recipient   The recipient of the transfer.
+    /// @param  _asset      The asset to transfer.
+    /// @param  _amount     The amount to transfer.
+    /// @param  _recipient  The recipient of the transfer.
     function _transfer(
-        address asset,
-        uint256 amount,
-        address recipient
+        address _asset,
+        uint256 _amount,
+        address _recipient
     ) internal {
 
         SafeERC20.safeTransfer(
-            IERC20(asset),
-            recipient,
-            amount
+            IERC20(_asset),
+            _recipient,
+            _amount
         );
-        emit Transfer(asset, amount, address(this), recipient);
+        emit Transfer(_asset, _amount, address(this), _recipient);
     }
 
     /// @notice Executes a mint operation in the context of COFI.
     ///
-    /// @param  fiAsset The fiAsset to mint.
-    /// @param  to      The account to mint to.
-    /// @param  amount  The amount of fiAssets to mint.
+    /// @param  _fi     The fi token to mint.
+    /// @param  _to     The account to mint to.
+    /// @param  _amount The amount of fi tokens to mint.
     function _mint(
-        address fiAsset,
-        address to,
-        uint256 amount
+        address _fi,
+        address _to,
+        uint256 _amount
     ) internal {
 
-        IFiToken(fiAsset).mint(to, amount);
-        emit Mint(fiAsset, amount, to);
+        IFiToken(_fi).mint(_to, _amount);
+        emit Mint(_fi, _amount, _to);
     }
 
 
-    /// @notice Opts in recipient being minted to.
+    /// @notice Executes a mint operation and opts the receiver into rebases.
     ///
-    /// @param  fiAsset The fiAsset to mint.
-    /// @param  to      The account to mint to.
-    /// @param  amount  The amount of fiAssets to mint.
+    /// @param  _fi     The fi token to mint.
+    /// @param  _to     The account to mint to.
+    /// @param  _amount The amount of fi tokens to mint.
     function _mintOptIn(
-        address fiAsset,
-        address to,
-        uint256 amount
+        address _fi,
+        address _to,
+        uint256 _amount
     ) internal {
 
-        IFiToken(fiAsset).mintOptIn(to, amount);
-        emit Mint(fiAsset, amount, to);
+        IFiToken(_fi).mintOptIn(_to, _amount);
+        emit Mint(_fi, _amount, _to);
     }
 
     /// @notice Executes a burn operation in the context of COFI.
     ///
-    /// @param  fiAsset The fiAsset to burn.
-    /// @param  from    The account to burn from.
-    /// @param  amount  The amount of fiAssets to burn.
+    /// @param  _fi     The fi token to burn.
+    /// @param  _from   The account to burn from.
+    /// @param  _amount The amount of fis to burn.
     function _burn(
-        address fiAsset,
-        address from,
-        uint256 amount
+        address _fi,
+        address _from,
+        uint256 _amount
     ) internal {
 
-        IFiToken(fiAsset).burn(from, amount);
-        emit Burn(fiAsset, amount, from);
+        IFiToken(_fi).burn(_from, _amount);
+        emit Burn(_fi, _amount, _from);
     }
 
     /// @notice Calls redeem operation on FiToken contract.
+    ///
     /// @dev    Skips approval check.
+    ///
+    /// @param _fi      The fi token to redeem.
+    /// @param _from    The account to redeem from.
+    /// @param _amount  The amount of fi tokens to redeem.
     function _redeem(
-        address fiAsset,
-        address from,
-        uint256 amount
+        address _fi,
+        address _from,
+        uint256 _amount
     ) internal {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        IFiToken(fiAsset).redeem(from, s.feeCollector, amount);
+        IFiToken(_fi).redeem(_from, s.feeCollector, _amount);
     }
 
-    /// @notice Updates the total supply of the fiAsset.
+    /// @notice Updates the total supply of the fi token.
+    ///
+    /// @dev    Will revert if the new supply < old supply.
+    ///
+    /// @param _fi      The fi token to change supply for.
+    /// @param _amount  The new supply.
+    /// @param _yield   The amount of yield accrued.
+    /// @param _fee     The service fee captured.
     function _changeSupply(
-        address fiAsset,
-        uint256 amount,
-        uint256 yield,
-        uint256 fee
+        address _fi,
+        uint256 _amount,
+        uint256 _yield,
+        uint256 _fee
     ) internal {
         
-        IFiToken(fiAsset).changeSupply(amount);
+        IFiToken(_fi).changeSupply(_amount);
         emit TotalSupplyUpdated(
-            fiAsset,
-            amount,
-            yield,
-            IFiToken(fiAsset).rebasingCreditsPerTokenHighres(),
-            fee
+            _fi,
+            _amount,
+            _yield,
+            IFiToken(_fi).rebasingCreditsPerTokenHighres(),
+            _fee
         );
     }
 
+    /// @notice Returns the rCPT for a given fi token.
+    ///
+    /// @param _fi  The fi token to enquire for.
     function _getRebasingCreditsPerToken(
-        address fiAsset
+        address _fi
     ) internal view returns (uint256) {
 
-        return IFiToken(fiAsset).rebasingCreditsPerTokenHighres();
+        return IFiToken(_fi).rebasingCreditsPerTokenHighres();
     }
 
-    /// @notice Returns the mint fee for a given fiAsset.
+    /// @notice Returns the mint fee for a given fi token.
     ///
-    /// @param  fiAsset The fiAsset to mint.
-    /// @param  amount  The amount of fiAssets to mint.
+    /// @param  _fi     The fi token to mint.
+    /// @param  _amount The amount of fi tokens to mint.
     function _getMintFee(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return amount.percentMul(s.mintFee[fiAsset]);
+        return _amount.percentMul(s.mintFee[_fi]);
     }
 
-    /// @notice Returns the redeem fee for a given fiAsset.
+    /// @notice Returns the redeem fee for a given fi token.
     ///
-    /// @param  fiAsset The fiAsset to submit for redemption.
-    /// @param  amount  The amount of fiAssets to submit for redemption.
+    /// @param  _fi     The fi token to redeem.
+    /// @param  _amount The amount of fi tokens to redeem
     function _getRedeemFee(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return amount.percentMul(s.redeemFee[fiAsset]);
+        return _amount.percentMul(s.redeemFee[_fi]);
     }
 
     /// @notice Opts contract into receiving rebases.
     ///
-    /// @param  fiAsset The fiAsset to opt-in to rebases for.
+    /// @param  _fi The fi token to opt-in to rebases for.
     function _rebaseOptIn(
-        address fiAsset
+        address _fi
     ) internal {
 
-        IFiToken(fiAsset).rebaseOptIn();
+        IFiToken(_fi).rebaseOptIn();
     }
 
     /// @notice Opts contract out of receiving rebases.
     ///
-    /// @param  fiAsset The fiAsset to opt-out of rebases for.
+    /// @param  _fi The fi token to opt-out of rebases for.
     function _rebaseOptOut(
-        address fiAsset
+        address _fi
     ) internal {
         
-        IFiToken(fiAsset).rebaseOptOut();
+        IFiToken(_fi).rebaseOptOut();
     }
 
-    /// @notice Retrieves yield earned of fiAsset for account.
+    /// @notice Retrieves yield earned of fi for account.
     ///
-    /// @param  account The account to enquire for.
-    /// @param  fiAsset The fiAsset to check account's yield for.
+    /// @param  _account    The account to enquire for.
+    /// @param  _fi         The fi token to check account's yield for.
     function _getYieldEarned(
-        address account,
-        address fiAsset
+        address _account,
+        address _fi
     ) internal view returns (uint256) {
         
-        return IFiToken(fiAsset).getYieldEarned(account);
+        return IFiToken(_fi).getYieldEarned(_account);
     }
 
+    /// @notice Represents an underlying token decimals in fi decimals.
+    ///
+    /// @param _fi      Retrieves the underlying decimals from mapping.
+    /// @param _amount  The amount of underlying to translate.
     function _toFiDecimals(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return amount.scaleBy(18, s.decimals[s.underlying[fiAsset]]);
+        return _amount.scaleBy(18, s.decimals[s.underlying[_fi]]);
     }
 
+    /// @notice Represents a fi token in its underlying decimals.
+    ///
+    /// @param _fi      Retrieves the underlying decimals from mapping.
+    /// @param _amount  The amount of underlying to translate.
     function _toUnderlyingDecimals(
-        address fiAsset,
-        uint256 amount
+        address _fi,
+        uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return amount.scaleBy(s.decimals[s.underlying[fiAsset]], 18);
+        return _amount.scaleBy(s.decimals[s.underlying[_fi]], 18);
     }
 }
