@@ -22,8 +22,9 @@ const YVOP_Addr = "0x7D2382b1f8Af621229d33464340541Db362B4907"
 const StakingRewards_YVUSDC_Addr = "0xB2c04C55979B6CA7EB10e666933DE5ED84E6876b"
 const StakingRewards_YVETH_Addr = "0xE35Fec3895Dcecc7d2a91e8ae4fF3c0d43ebfFE0"
 
-/* Swap Params */
+const whaleUsdcEth = "0xee55c2100C3828875E0D65194311B8eF0372C6d9"
 
+/* Swap Params */
 const getRewardMin = "1000000000000000000" // 1 OP
 const amountInMin = "1000000000000000000" // 1 OP
 const slippage = "200" // 2%
@@ -41,13 +42,14 @@ describe("Test Yearn custom wrappers", function() {
 
         console.log(await helpers.time.latestBlock())
 
-        const WYVUSDC = await ethers.getContractFactory("YearnZapReinvestWrapper")
+        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
         const wyvUSDC = await WYVUSDC.deploy(
             YVUSDC_Addr,
             YVOP_Addr,
             StakingRewards_YVUSDC_Addr,
             "0x0000000000000000000000000000000000000000",
-            USDC_Addr,
+            (await owner.getAddress()), // authorized
+            USDC_Addr, // want
             getRewardMin,
             amountInMin,
             slippage,
@@ -58,12 +60,13 @@ describe("Test Yearn custom wrappers", function() {
         await wyvUSDC.waitForDeployment()
         console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
     
-        const WYVETH = await ethers.getContractFactory("YearnZapReinvestWrapper")
+        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
         const wyvETH = await WYVETH.deploy(
             YVETH_Addr,
             YVOP_Addr,
             StakingRewards_YVETH_Addr,
             "0x13e3Ee699D1909E989722E753853AE30b17e08c5", // ETH price feed
+            (await owner.getAddress()), // authorized
             WETH_Addr,
             getRewardMin,
             amountInMin,
@@ -76,11 +79,11 @@ describe("Test Yearn custom wrappers", function() {
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
 
         /* Initial deposit */
-        const whaleUsdcEth = await ethers.getImpersonatedSigner("0xee55c2100C3828875E0D65194311B8eF0372C6d9")
-        const _usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleUsdcEth)
+        const whaleSigner = await ethers.getImpersonatedSigner(whaleUsdcEth)
+        const _usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleSigner)
         await _usdc.transfer(await owner.getAddress(), "1000000000") // 1,000 USDC
         console.log("Transferred USDC")
-        const _weth = (await ethers.getContractAt(WETH_ABI, WETH_Addr)).connect(whaleUsdcEth)
+        const _weth = (await ethers.getContractAt(WETH_ABI, WETH_Addr)).connect(whaleSigner)
         await _weth.transfer(await owner.getAddress(), "500000000000000000") // 0.5 wETH
         console.log("Transferred ETH")
         const usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(signer)
@@ -127,7 +130,7 @@ describe("Test Yearn custom wrappers", function() {
         await _op.transfer(await wyvETH.getAddress(), "1010000000000000000") // 1.01 OP
 
         return {
-            owner, signer, wyvUSDC, wyvETH, usdc, weth, _usdc, _weth, yvUSDC, yvETH
+            owner, signer, wyvUSDC, wyvETH, usdc, weth, _usdc, _weth, yvUSDC, yvETH, whaleSigner
         }
     }
 
@@ -213,5 +216,60 @@ describe("Test Yearn custom wrappers", function() {
         console.log("t2 Owner wyvETH bal: " + t2_wyvETHBal.toString())
         console.log("t2 Owner USDC bal: " + t2_USDCBal.toString())
         console.log("t2 Owner wETH bal: " + t2_wETHBal.toString())
+    })
+
+    it("Should prevent unauthorized access", async function() {
+
+        const { 
+            owner, wyvUSDC, wyvETH, usdc, weth, _usdc, _weth, whaleSigner
+        } = await loadFixture(deploy)
+
+        // Approve wrapper spend for Whale
+        await _usdc.approve((await wyvUSDC.getAddress()), "1000000000") // 1,000 USDC
+        await _weth.approve((await wyvETH.getAddress()), "500000000000000000") // 0.5 wETH
+
+        // Whale deposit (unauthorized - should fail)
+        const _wyvUSDC = wyvUSDC.connect(whaleSigner)
+        const _wyvETH = wyvETH.connect(whaleSigner)
+        // await _wyvUSDC.deposit("1000000000", whaleUsdcEth)
+        // await _wyvETH.deposit("500000000000000000", whaleUsdcEth)
+
+        // Try to set admin
+        // await _wyvUSDC.setAdmin(whaleUsdcEth, "1")
+        // console.log("Whale Admin status: " (await _wsoBTC.admin(whaleUsdcEth)).toString())
+
+        // const t1_wyvUSDCBal = await _wyvUSDC.balanceOf(whaleUsdcEth)
+        // // Preview how much yvUSDC Owner should redeem
+        // const t1_yvUSDCBal = await _wyvUSDC.previewRedeem(t1_wyvUSDCBal.toString())
+        // const t1_wyvETHBal = await _wyvETH.balanceOf(whaleUsdcEth)
+        // // Preview how much yvUSDC Owner should redeem
+        // const t1_yvETHBal = await _wyvETH.previewRedeem(t1_wyvETHBal.toString())
+
+        // // Post-deposit bal
+        // console.log("t1 Whale wyvUSDC bal: " + t1_wyvUSDCBal.toString())
+        // console.log("t1 Whale yvUSDC bal: " + t1_yvUSDCBal.toString())
+        // console.log("t1 Whale wyvETH bal: " + t1_wyvETHBal.toString())
+        // console.log("t1 Whale yvETH bal: " + t1_yvETHBal.toString())
+
+        // Now set authorizedEnabled to 0.
+        await wyvUSDC.setAuthorizedEnabled("0")
+        await wyvETH.setAuthorizedEnabled("0")
+
+        // Repeat deposit
+        await _wyvUSDC.deposit("1000000000", whaleUsdcEth)
+        await _wyvETH.deposit("500000000000000000", whaleUsdcEth)
+
+        const t2_wyvUSDCBal = await _wyvUSDC.balanceOf(whaleUsdcEth)
+        // Preview how much yvUSDC Owner should redeem
+        const t2_yvUSDCBal = await _wyvUSDC.previewRedeem(t2_wyvUSDCBal.toString())
+        const t2_wyvETHBal = await _wyvETH.balanceOf(whaleUsdcEth)
+        // Preview how much yvUSDC Owner should redeem
+        const t2_yvETHBal = await _wyvETH.previewRedeem(t2_wyvETHBal.toString())
+
+        // Post-deposit bal
+        console.log("t2 Whale wyvUSDC bal: " + t2_wyvUSDCBal.toString())
+        console.log("t2 Whale yvUSDC bal: " + t2_yvUSDCBal.toString())
+        console.log("t2 Whale wyvETH bal: " + t2_wyvETHBal.toString())
+        console.log("t2 Whale yvETH bal: " + t2_yvETHBal.toString())
     })
 })

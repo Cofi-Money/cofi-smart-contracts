@@ -55,6 +55,8 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     error MIN_AMOUNT_ERROR();
     /// @notice Thrown when swap path fee in reinvest is invalid.
     error INVALID_FEE_ERROR();
+    error NOT_AUTHORIZED();
+    error NOT_ADMIN();
 
     /*//////////////////////////////////////////////////////////////
                             CONSTANTS
@@ -193,7 +195,7 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /// @dev Harvest operation accrues interest.
     function harvest() external onlyAuthorizedOrAdmin returns (uint256 deposited) {
-        if (swapParams.enabled == 1) {
+        if (swapParams.enabled > 0) {
             console.log("Attempting to harvest with swap");
             return harvestWithSwap();
         } else {
@@ -391,16 +393,13 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     We can't inherit directly from Yield-daddy because of rewardClaim lock
     //////////////////////////////////////////////////////////////*/
 
-    /*//////////////////////////////////////////////////////////////
-                        DEPOSIT/WITHDRAWAL LOGIC
-    //////////////////////////////////////////////////////////////*/
-
     function deposit(
         uint256 _assets,
         address _receiver
     )   public override nonReentrant onlyAuthorized
         returns (uint256 shares)
     {
+        console.log("Entering deposit");
         // Check for rounding error since we round down in previewDeposit.
         require((shares = previewDeposit(_assets)) != 0, "ZERO_SHARES");
 
@@ -546,7 +545,7 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        ERC20 METADATA
+                            ERC20 METADATA
     //////////////////////////////////////////////////////////////*/
 
     function _vaultName(
@@ -570,35 +569,35 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyAdmin() {
-        require(
-            msg.sender == owner() || admin[msg.sender] > 0,
-            "CompoundV2ERC4626Wrapper: Caller not admin"
-        );
+        if (msg.sender != owner() || admin[msg.sender] < 1) {
+            console.log("Not admin");
+            revert NOT_ADMIN();
+        }
         _;
     }
 
     /// @dev Add to prevent state change outside of app context
     modifier onlyAuthorized() {
         if (authorizedEnabled > 0) {
-            require(
-                authorized[msg.sender] > 0,
-                "CompoundV2ERC4626Wrapper: Caller not authorized"
-            );            
+            if (authorized[msg.sender] < 1) {
+                console.log("Not authorized");
+                revert NOT_AUTHORIZED();
+            }
         }
         _;
     }
 
     modifier onlyAuthorizedOrAdmin() {
         if (authorizedEnabled > 0) {
-            require(
-                authorized[msg.sender] > 0,
-                "CompoundV2ERC4626Wrapper: Caller not authorized"
-            );
+            if (authorized[msg.sender] < 1) {
+                console.log("Not authorized");
+                revert NOT_AUTHORIZED();
+            }
         }
-        require(
-            msg.sender == owner() || admin[msg.sender] > 0,
-            "CompoundV2ERC4626Wrapper: Caller not admin"
-        );
+        if (msg.sender != owner() || admin[msg.sender] < 1) {
+            console.log("Not admin");
+            revert NOT_ADMIN();
+        }
         _;
     }
 }

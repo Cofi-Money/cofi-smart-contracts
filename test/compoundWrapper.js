@@ -17,6 +17,8 @@ const WETH_Addr = "0x4200000000000000000000000000000000000006"
 const OP_Addr = "0x4200000000000000000000000000000000000042"
 const COMPTROLLER_Addr = "0x60cf091cd3f50420d50fd7f707414d0df4751c58"
 
+const whaleBtc = "0x456325F2AC7067234dD71E01bebe032B0255e039"
+
 describe("Test Compound custom wrapper", function() {
 
     async function deploy() {
@@ -35,15 +37,15 @@ describe("Test Compound custom wrapper", function() {
             SOWBTC_Addr,
             COMPTROLLER_Addr,
             "0xd702dd976fb76fffc2d3963d037dfdae5b04e593", // BTC price feed
-            (await owner.getAddress()),
+            (await owner.getAddress()), // authorized
             "1000000000000000000", // amountInMin = 1 OP
             "200", // slippage = 2%
             "12" // wait = 12 seconds
         )
 
         /* Initial deposit */
-        const whaleBtc = await ethers.getImpersonatedSigner("0x456325F2AC7067234dD71E01bebe032B0255e039")
-        const _wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(whaleBtc)
+        const whaleBtcSigner = await ethers.getImpersonatedSigner("0x456325F2AC7067234dD71E01bebe032B0255e039")
+        const _wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(whaleBtcSigner)
         await _wbtc.transfer(await owner.getAddress(), "50000000") // 0.5 wBTC
         console.log("Transferred wBTC")
         const wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(signer)
@@ -73,7 +75,7 @@ describe("Test Compound custom wrapper", function() {
         console.log("Set route")
 
         return {
-            owner, signer, wsoBTC, sowBTC, wbtc, _op, _wbtc
+            owner, signer, whaleBtcSigner, wsoBTC, sowBTC, wbtc, _op, _wbtc
         }
     }
 
@@ -134,5 +136,53 @@ describe("Test Compound custom wrapper", function() {
 
         const t3_wbtcBal = await wbtc.balanceOf(owner.getAddress())
         console.log("t3 Owner wBTC bal: " + t3_wbtcBal.toString())
+    })
+
+    it("Should prevent unauthorized access", async function() {
+
+        const { owner, wsoBTC, sowBTC, wbtc, _wbtc, whaleBtcSigner } = await loadFixture(deploy)
+
+        await _wbtc.approve(await wsoBTC.getAddress(), "10000000") // 0.1 wBTC
+
+        const _wsoBTC = wsoBTC.connect(whaleBtcSigner)
+
+        // Try to set admin
+        // await _wsoBTC.setAdmin(whaleBtc, "1")
+        // console.log("Whale Admin status: " (await _wsoBTC.admin(whaleBtc)).toString())
+
+        // Deposit should fail
+        _wsoBTC.deposit("10000000", whaleBtc)
+
+        const t1_wbtcBal = await _wbtc.balanceOf(whaleBtc)
+        // wsoBTC balance is unchanged
+        const t1_wsoBTCBal = await _wsoBTC.balanceOf(whaleBtc)
+        // Preview how much wBTC Owner should redeem
+        const t1_wbtcBalPR = await _wsoBTC.previewRedeem(t1_wsoBTCBal.toString())
+        
+        // Post-deposit balance
+        console.log("t1 Whale wBTC bal: " + t1_wbtcBal.toString())
+        console.log("t1 Whale wsoBTC bal: " + t1_wsoBTCBal.toString())
+        // previewRedeem
+        console.log("t1 Whale wBTC bal PR: " + t1_wbtcBalPR.toString())       
+        
+        // Now set authorizedEnabled to 0.
+        await wsoBTC.setAuthorizedEnabled("0")
+
+        // And try again - deposit should work
+        _wsoBTC.deposit("10000000", whaleBtc)
+
+        const t2_wbtcBal = await _wbtc.balanceOf(whaleBtc)
+        const _t2_wbtcBal = await wbtc.balanceOf(whaleBtc)
+        // wsoBTC balance is unchanged
+        const t2_wsoBTCBal = await _wsoBTC.balanceOf(whaleBtc)
+        // Preview how much wBTC Owner should redeem
+        const t2_wbtcBalPR = await _wsoBTC.previewRedeem(t2_wsoBTCBal.toString())
+        
+        // Post-deposit balance
+        console.log("t2 Whale wBTC bal: " + t2_wbtcBal.toString())
+        console.log("t2 Whale wBTC bal: " + _t2_wbtcBal.toString())
+        console.log("t2 Whale wsoBTC bal: " + t2_wsoBTCBal.toString())
+        // previewRedeem
+        console.log("t2 Whale wBTC bal PR: " + t2_wbtcBalPR.toString())  
     })
 })
