@@ -3,18 +3,18 @@
 const FacetCutAction = { Add: 0, Replace: 1, Remove: 2 }
 
 // get function selectors from ABI
-function getSelectors (contract) {
-  const signatures = Object.keys(contract.interface.functions)
-  const selectors = signatures.reduce((acc, val) => {
-    if (val !== 'init(bytes)') {
-      acc.push(contract.interface.getSighash(val))
-    }
-    return acc
-  }, [])
-  selectors.contract = contract
-  selectors.remove = remove
-  selectors.get = get
-  return selectors
+function getSelectors(contract) {
+    var signatures = Object.values(contract.interface.fragments.filter(function (fragment) { return fragment.type === "function"; }));
+    var selectors = signatures.reduce(function (acc, val) {
+        if (val.format("sighash") !== "init(bytes)") {
+            acc.push(val.selector);
+        }
+        return acc;
+    }, []);
+    selectors.contract = contract;
+    selectors.remove = remove;
+    selectors.get = get;
+    return selectors;
 }
 
 // get function selector from function signature

@@ -48,7 +48,6 @@ describe("Test Yearn custom wrappers", function() {
             YVOP_Addr,
             StakingRewards_YVUSDC_Addr,
             "0x0000000000000000000000000000000000000000",
-            (await owner.getAddress()), // authorized
             USDC_Addr, // want
             getRewardMin,
             amountInMin,
@@ -66,7 +65,6 @@ describe("Test Yearn custom wrappers", function() {
             YVOP_Addr,
             StakingRewards_YVETH_Addr,
             "0x13e3Ee699D1909E989722E753853AE30b17e08c5", // ETH price feed
-            (await owner.getAddress()), // authorized
             WETH_Addr,
             getRewardMin,
             amountInMin,
@@ -77,6 +75,9 @@ describe("Test Yearn custom wrappers", function() {
         )
         await wyvETH.waitForDeployment()
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
+
+        await wyvUSDC.setAuthorized((await owner.getAddress()), "1")
+        await wyvETH.setAuthorized((await owner.getAddress()), "1")
 
         /* Initial deposit */
         const whaleSigner = await ethers.getImpersonatedSigner(whaleUsdcEth)

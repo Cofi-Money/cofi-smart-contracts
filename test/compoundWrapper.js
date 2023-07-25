@@ -37,15 +37,20 @@ describe("Test Compound custom wrapper", function() {
             SOWBTC_Addr,
             COMPTROLLER_Addr,
             "0xd702dd976fb76fffc2d3963d037dfdae5b04e593", // BTC price feed
-            (await owner.getAddress()), // authorized
             "1000000000000000000", // amountInMin = 1 OP
             "200", // slippage = 2%
             "12" // wait = 12 seconds
         )
+        await wsoBTC.waitForDeployment()
+        console.log("Deployed wsoBTC to: ", (await wsoBTC.getAddress()))
+
+        await wsoBTC.setAuthorized((await owner.getAddress()), "1")
 
         /* Initial deposit */
-        const whaleBtcSigner = await ethers.getImpersonatedSigner("0x456325F2AC7067234dD71E01bebe032B0255e039")
+        const whaleBtcSigner = await ethers.getImpersonatedSigner(whaleBtc)
+        console.log("Impersonated wBTC Whale")
         const _wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(whaleBtcSigner)
+        console.log("Connected to wBTC contract")
         await _wbtc.transfer(await owner.getAddress(), "50000000") // 0.5 wBTC
         console.log("Transferred wBTC")
         const wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(signer)

@@ -55,7 +55,9 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     error MIN_AMOUNT_ERROR();
     /// @notice Thrown when swap path fee in reinvest is invalid.
     error INVALID_FEE_ERROR();
+    /// @notice Thrown when the caller is not authorized.
     error NOT_AUTHORIZED();
+    /// @notice Thrown when the caller is not admin.
     error NOT_ADMIN();
 
     /*//////////////////////////////////////////////////////////////
@@ -130,7 +132,6 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
         ICERC20      _cToken,   // Compound concept of a share
         IComptroller _comptroller,
         AggregatorV3Interface _wantPriceFeed,
-        address _authorized,
         uint256 _amountInMin,
         uint256 _slippage,
         uint256 _wait
@@ -151,7 +152,6 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
         swapParams.wait         = _wait;
         swapParams.enabled      = 1;
         admin[msg.sender]       = 1; // Also admin.
-        authorized[_authorized] = 1;
         authorizedEnabled = 1;
     }
 
@@ -576,7 +576,7 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
         _;
     }
 
-    /// @dev Add to prevent state change outside of app context
+    /// @dev Add to prevent state change outside of app context.
     modifier onlyAuthorized() {
         if (authorizedEnabled > 0) {
             if (authorized[msg.sender] < 1) {
@@ -588,15 +588,18 @@ contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
     }
 
     modifier onlyAuthorizedOrAdmin() {
-        if (authorizedEnabled > 0) {
-            if (authorized[msg.sender] < 1) {
-                console.log("Not authorized");
-                revert NOT_AUTHORIZED();
-            }
-        }
         if (msg.sender != owner() || admin[msg.sender] < 1) {
-            console.log("Not admin");
-            revert NOT_ADMIN();
+            // If not admin, check if authorized
+            if (authorizedEnabled > 0) {
+                if (authorized[msg.sender] < 1) {
+                    console.log("Not authorized");
+                    revert NOT_AUTHORIZED();
+                }
+            }
+            else {
+                console.log("Not admin");
+                revert NOT_ADMIN();
+            }
         }
         _;
     }

@@ -4,13 +4,13 @@ pragma solidity ^0.8.19;
 import "./interfaces/IVaultWrapper.sol";
 import "./interfaces/IStakingRewardsZap.sol";
 import "./interfaces/IStakingRewards.sol";
-import {VaultAPI, IYearnRegistry} from "./interfaces/VaultAPI.sol";
+import { VaultAPI, IYearnRegistry } from "./interfaces/VaultAPI.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {FixedPointMathLib} from "./libs/FixedPointMathLib.sol";
-import {PercentageMath} from "./libs/PercentageMath.sol";
-import {StableMath} from "./libs/StableMath.sol";
+import { FixedPointMathLib } from "./libs/FixedPointMathLib.sol";
+import { PercentageMath } from "./libs/PercentageMath.sol";
+import { StableMath } from "./libs/StableMath.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
@@ -104,7 +104,6 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         VaultAPI _rewardVault,
         IStakingRewards _stakingRewards,
         AggregatorV3Interface _wantPriceFeed,
-        address _authorized,
         address _underlying,
         uint256 _getRewardMin,
         uint256 _amountInMin,
@@ -131,7 +130,6 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         swapParams.poolFee      = _poolFee;
         swapParams.enabled      = 1;
         admin[msg.sender]       = 1;
-        authorized[_authorized] = 1;
         authorizedEnabled = 1;
     }
 

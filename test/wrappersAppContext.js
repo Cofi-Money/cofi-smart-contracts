@@ -30,6 +30,8 @@ const WBTC_Addr = "0x68f180fcCe6836688e9084f035309E29Bf0A2095"
 const SOWBTC_Addr = "0x33865E09A572d4F1CC4d75Afc9ABcc5D3d4d867D"
 const COMPTROLLER_Addr = "0x60cf091cd3f50420d50fd7f707414d0df4751c58"
 
+const NULL_Addr = "0x0000000000000000000000000000000000000000"
+
 /* Yearn Swap Params */
 
 const getRewardMin = "1000000000000000000" // 1 OP
@@ -37,6 +39,10 @@ const amountInMin = "1000000000000000000" // 1 OP
 const slippage = "200" // 2%
 const wait = "12" // 12 seconds
 const poolFee = "3000" // 0.3%
+
+const whaleUsdcEth = "0xee55c2100C3828875E0D65194311B8eF0372C6d9"
+const whaleBtc = "0x456325F2AC7067234dD71E01bebe032B0255e039"
+const whaleOp = "0x82326a9E6BD66e51a4c2c29168B10A1853Fc9Af7"
 
 // Note actual deployment may have to be partitioned into smaller steps
 
@@ -51,18 +57,21 @@ describe("Test wrappers in app context", function() {
         const feeCollector = accounts[3]
 
         const signer = (await ethers.provider.getSigner(0))
+        const wueSigner = (await ethers.getImpersonatedSigner(whaleUsdcEth))
+        const wbtSigner = (await ethers.getImpersonatedSigner(whaleBtc))
+        const wopSigner = (await ethers.getImpersonatedSigner(whaleOp))
 
         console.log(await helpers.time.latestBlock())
 
         /* Deploy wrappers */
 
-        const WYVUSDC = await ethers.getContractFactory("YearnZapReinvestWrapper")
+        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
         const wyvUSDC = await WYVUSDC.deploy(
             YVUSDC_Addr,
             YVOP_Addr,
             StakingRewards_YVUSDC_Addr,
             "0x0000000000000000000000000000000000000000",
-            USDC_Addr,
+            USDC_Addr, // want
             getRewardMin,
             amountInMin,
             slippage,
@@ -73,7 +82,7 @@ describe("Test wrappers in app context", function() {
         await wyvUSDC.waitForDeployment()
         console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
     
-        const WYVETH = await ethers.getContractFactory("YearnZapReinvestWrapper")
+        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
         const wyvETH = await WYVETH.deploy(
             YVETH_Addr,
             YVOP_Addr,
@@ -97,13 +106,13 @@ describe("Test wrappers in app context", function() {
             SOWBTC_Addr,
             COMPTROLLER_Addr,
             "0xd702dd976fb76fffc2d3963d037dfdae5b04e593", // BTC price feed
-            (await owner.getAddress()),
             "1000000000000000000", // amountInMin = 1 OP
             "200", // slippage = 2%
             "12" // wait = 12 seconds
         )
-        await wsoBTC.waitForDeployment();
-        console.log("wsoBTC deployed: " + await wsoBTC.getAddress())
+        await wsoBTC.waitForDeployment()
+        console.log("wsoBTC deployed: ", await wsoBTC.getAddress())
+        await wsoBTC.setRoute("3000", WETH_Addr, "3000")
 
         /* Deploy COFI tokens */
 
@@ -148,8 +157,19 @@ describe("Test wrappers in app context", function() {
 
         // Set Diamond address in FiToken contracts.
         await fiUSD.setDiamond(await diamond.getAddress())
+        console.log("Diamond address set in fiUSD")
         await fiETH.setDiamond(await diamond.getAddress())
+        console.log("Diamond address set in fiETH")
         await fiBTC.setDiamond(await diamond.getAddress())
+        console.log("Diamond address set in fiBTC")
+
+        // Deploy DiamondInit
+        // DiamondInit provides a function that is called when the diamond is upgraded to initialize state variables
+        // Read about how the diamondCut function works here: https://eips.ethereum.org/EIPS/eip-2535#addingreplacingremoving-functions
+        const DiamondInit = await ethers.getContractFactory('InitDiamond')
+        const diamondInit = await DiamondInit.deploy()
+        await diamondInit.waitForDeployment()
+        console.log('DiamondInit deployed:', await diamondInit.getAddress())
 
         // Deploy facets
         console.log('')
@@ -166,17 +186,17 @@ describe("Test wrappers in app context", function() {
         ]
         const cut = []
         for (const FacetName of FacetNames) {
-        const Facet = await ethers.getContractFactory(FacetName)
-        const facet = await Facet.deploy()
-        await facet.deployed()
-        console.log(`${FacetName} deployed: ${facet.address}`)
-        cut.push({
-            facetAddress: facet.address,
-            action: FacetCutAction.Add,
-            functionSelectors: getSelectors(facet)
-        })
+            const Facet = await ethers.getContractFactory(FacetName)
+            const facet = await Facet.deploy()
+            await facet.waitForDeployment()
+            console.log(`${FacetName} deployed: ${await facet.getAddress()}`)
+            cut.push({
+                facetAddress: await facet.getAddress(),
+                action: FacetCutAction.Add,
+                functionSelectors: getSelectors(facet)
+            })
         }
-        
+       
         const initArgs = [{
             fiUSD:  (await fiUSD.getAddress()),
             fiETH:  (await fiETH.getAddress()),
@@ -187,23 +207,22 @@ describe("Test wrappers in app context", function() {
             USDC:   USDC_Addr,
             wETH:   WETH_Addr,
             wBTC:   WBTC_Addr,
-            roles:
-                [
-                    (await whitelister.getAddress()),
-                    (await backupOwner.getAddress()),
-                    (await feeCollector.getAddress())
-                ]
+            roles: [
+                (await whitelister.getAddress()),
+                (await backupOwner.getAddress()),
+                (await feeCollector.getAddress())
+            ]
         }]
         
         // Upgrade diamond with facets
         console.log('')
         console.log('Diamond Cut:', cut)
-        const diamondCut = await ethers.getContractAt('IDiamondCut', diamond.address)
+        const diamondCut = await ethers.getContractAt('IDiamondCut', await diamond.getAddress())
         let tx
         let receipt
         // Call to init function
         let functionCall = diamondInit.interface.encodeFunctionData('init', initArgs)
-        tx = await diamondCut.diamondCut(cut, diamondInit.address, functionCall)
+        tx = await diamondCut.diamondCut(cut, await diamondInit.getAddress(), functionCall)
         console.log('Diamond cut tx: ', tx.hash)
         receipt = await tx.wait()
         if (!receipt.status) {
@@ -215,7 +234,150 @@ describe("Test wrappers in app context", function() {
         await wyvUSDC.setAuthorized(await diamond.getAddress(), "1")
         await wyvETH.setAuthorized(await diamond.getAddress(), "1")
         await wsoBTC.setAuthorized(await diamond.getAddress(), "1")
+        console.log("Authorized Diamond interaction with wrappers")
 
-        
+        /* Whitelist user */
+        const cofiMoney = (await ethers.getContractAt('COFIMoney', await diamond.getAddress())).connect(signer)
+        await cofiMoney.setWhitelist((await owner.getAddress()), "1")
+        console.log("Whitelisted user")
+
+        /* Transfer user assets */
+        const wue_usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(wueSigner)
+        await wue_usdc.transfer((await owner.getAddress()), "1000000000") // 1,000 USDC
+        console.log("Transferred USDC to user")
+        const wue_eth = (await ethers.getContractAt(WETH_ABI, WETH_Addr)).connect(wueSigner)
+        await wue_eth.transfer((await owner.getAddress()), "500000000000000000") // 0.5 wETH
+        console.log("Transferred wETH to user")
+        const wbt_btc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(wbtSigner)
+        await wbt_btc.transfer((await owner.getAddress()), "10000000") // 0.1 wBTC
+        console.log("Transferred wBTC to user")
+
+        /* Initial deposits */
+        const usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(signer)
+        await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
+        await cofiMoney.underlyingToFi(
+            "1000000000",
+            "997500000", // 0.25% slippage
+            await fiUSD.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+        console.log("t0 Owner fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        const weth = (await ethers.getContractAt(WETH_ABI, WETH_Addr)).connect(signer)
+        await weth.approve(await diamond.getAddress(), "500000000000000000") // 0.5 wETH
+        await cofiMoney.underlyingToFi(
+            "500000000000000000",
+            "498750000000000000", // 0.25% slippage
+            await fiETH.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+        console.log("t0 Owner fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        const wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(signer)
+        await wbtc.approve(await diamond.getAddress(), "10000000") // 0.1 wBTC
+        await cofiMoney.underlyingToFi(
+            "10000000",
+            "99750000", // 0.25% slippage
+            await fiBTC.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+        console.log("t0 Owner fiBTC bal: ", await fiBTC.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector fiBTC bal: ", await fiBTC.balanceOf(await feeCollector.getAddress()))
+
+        /* Set up executable yield distribution */
+        const wop_op = (await ethers.getContractAt(OP_ABI, OP_Addr)).connect(wopSigner)
+        await wop_op.transfer(await wyvUSDC.getAddress(), "10000000000000000000") // 10 OP
+        await wop_op.transfer(await wyvETH.getAddress(), "10000000000000000000") // 10 OP
+        await wop_op.transfer(await wsoBTC.getAddress(), "10000000000000000000") // 10 OP
+        console.log("Transferred OP to wrappers")
+
+        return {
+            owner, feeCollector, signer, wueSigner, wbtSigner, wyvUSDC, wyvETH, wsoBTC,
+            fiUSD, fiETH, fiBTC, usdc, weth, wbtc, cofiMoney
+        }
     }
+
+    it("Should harvest, rebase for fiUSD, and redeem", async function() {
+
+        const { owner, feeCollector, wyvUSDC, fiUSD, usdc, cofiMoney } = await loadFixture(deploy)
+
+        // Harvest
+        await cofiMoney.rebase(await fiUSD.getAddress())
+
+        console.log("t1 Owner fiUSD bal: " + (await fiUSD.balanceOf(await owner.getAddress())))
+        console.log("t1 Fee Collector fiUSD bal: " + (await fiUSD.balanceOf(await feeCollector.getAddress())))
+        console.log("t1 Diamond wyvUSDC bal: " + (await wyvUSDC.balanceOf(await cofiMoney.getAddress())))
+
+        // Redeem
+        await cofiMoney.fiToUnderlying(
+            await fiUSD.balanceOf(await owner.getAddress()),
+            "1000000000", // Compare to actual amount received
+            await fiUSD.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress()
+        )
+
+        console.log("t2 Owner USDC bal: " + (await usdc.balanceOf(await owner.getAddress())))
+        console.log("t2 Owner fiUSD bal: " + (await fiUSD.balanceOf(await owner.getAddress())))
+        console.log("t2 Fee Collector fiUSD bal: " + (await fiUSD.balanceOf(await feeCollector.getAddress())))
+        console.log("t2 Diamond wyvUSDC bal: " + (await wyvUSDC.balanceOf(await cofiMoney.getAddress())))
+    })
+
+    it("Should harvest, rebase for fiETH, and redeem", async function() {
+
+        const { owner, feeCollector, wyvETH, fiETH, weth, cofiMoney } = await loadFixture(deploy)
+
+        // Harvest
+        await cofiMoney.rebase(await fiETH.getAddress())
+
+        console.log("t1 Owner fiETH bal: " + (await fiETH.balanceOf(await owner.getAddress())))
+        console.log("t1 Fee Collector fiETH bal: " + (await fiETH.balanceOf(await feeCollector.getAddress())))
+        console.log("t1 Diamond wyvETH bal: " + (await wyvETH.balanceOf(await cofiMoney.getAddress())))
+
+        // Redeem
+        await cofiMoney.fiToUnderlying(
+            await fiETH.balanceOf(await owner.getAddress()),
+            "500000000000000000", // Compare to actual amount received
+            await fiETH.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress()
+        )
+
+        console.log("t2 Owner wETH bal: " + (await weth.balanceOf(await owner.getAddress())))
+        console.log("t2 Owner fiETH bal: " + (await fiETH.balanceOf(await owner.getAddress())))
+        console.log("t2 Fee Collector fiETH bal: " + (await fiETH.balanceOf(await feeCollector.getAddress())))
+        console.log("t2 Diamond wyvETH bal: " + (await wyvETH.balanceOf(await cofiMoney.getAddress())))
+    })
+
+    it("Should harvest, rebase for fiBTC, and redeem", async function() {
+
+        const { owner, feeCollector, wsoBTC, fiBTC, wbtc, cofiMoney } = await loadFixture(deploy)
+
+        // Harvest
+        await cofiMoney.rebase(await fiBTC.getAddress())
+
+        console.log("t1 Owner fiBTC bal: " + (await fiBTC.balanceOf(await owner.getAddress())))
+        console.log("t1 Fee Collector fiBTC bal: " + (await fiBTC.balanceOf(await feeCollector.getAddress())))
+        console.log("t1 Diamond wsoBTC bal: " + (await wsoBTC.balanceOf(await cofiMoney.getAddress())))
+
+        // Redeem
+        await cofiMoney.fiToUnderlying(
+            await fiBTC.balanceOf(await owner.getAddress()),
+            "10000000", // Compare to actual amount received
+            await fiBTC.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress()
+        )
+
+        console.log("t2 Owner wBTC bal: " + (await wbtc.balanceOf(await owner.getAddress())))
+        console.log("t2 Owner fiBTC bal: " + (await fiBTC.balanceOf(await owner.getAddress())))
+        console.log("t2 Fee Collector fiBTC bal: " + (await fiBTC.balanceOf(await feeCollector.getAddress())))
+        console.log("t2 Diamond wsoBTC bal: " + (await wsoBTC.balanceOf(await cofiMoney.getAddress())))
+    })
 })
