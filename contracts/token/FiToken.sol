@@ -34,56 +34,56 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
 
     using PercentageMath for uint256;
 
-    event TotalSupplyUpdatedHighres(
+    event TotalSupplyUpdatedHighres( // D
         uint256 totalSupply,
         uint256 rebasingCredits,
         uint256 rebasingCreditsPerToken
     );
 
-    enum RebaseOptions {
+    enum RebaseOptions { // D
         NotSet,
         OptOut,
         OptIn
     }
 
-    uint256 private constant MAX_SUPPLY = ~uint128(0); // (2^128) - 1
+    uint256 private constant MAX_SUPPLY = ~uint128(0); // (2^128) - 1 // D
 
-    uint256 public _totalSupply;
+    uint256 public _totalSupply; // D
 
     // NOTE '_allowances' has moved to base 'draft-ERC20Permit.sol' contract.
     
-    mapping(address => uint256) public _creditBalances;
+    mapping(address => uint256) public _creditBalances; // D
 
-    uint256 private _rebasingCredits;
+    uint256 private _rebasingCredits; // D
 
-    uint256 private _rebasingCreditsPerToken;
+    uint256 private _rebasingCreditsPerToken; // D
 
     // Frozen address/credits are non rebasing (value is held in contracts which
     // do not receive yield unless they explicitly opt in)
-    uint256 public nonRebasingSupply;
+    uint256 public nonRebasingSupply; // D
 
-    mapping(address => uint256) public nonRebasingCreditsPerToken;
+    mapping(address => uint256) public nonRebasingCreditsPerToken; // D
 
-    mapping(address => RebaseOptions) public rebaseState;
+    mapping(address => RebaseOptions) public rebaseState; // D
 
-    mapping(address => uint256) public isUpgraded;
+    mapping(address => uint256) public isUpgraded; // D
 
-    address diamond;
+    address diamond; // D
 
-    mapping(address => bool) private admin;
+    mapping(address => bool) private admin; // D
 
     // Mapping for freezing accounts.
-    mapping(address => bool) private frozen;
+    mapping(address => bool) private frozen; // D
 
     // Manually prevent an account from opting in to rebases.
-    mapping(address => bool) private rebaseLock;
+    mapping(address => bool) private rebaseLock; // D
 
-    bool paused;
+    bool paused; // D
 
     // Used to track the total amount of yield earned via rebases for accounts.
-    mapping(address => int256) yieldExcl;
+    mapping(address => int256) yieldExcl; // D
 
-    uint256 private constant RESOLUTION_INCREASE = 1e9;
+    uint256 private constant RESOLUTION_INCREASE = 1e9; // D
 
     constructor(
         string memory _name,
@@ -96,7 +96,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @dev Verifies that the caller is the Diamond contract
      */
-    modifier onlyDiamond() {
+    modifier onlyDiamond() { // D
         require(diamond == msg.sender, 'FiToken: Caller is not Diamond');
         _;
     }
@@ -104,7 +104,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @dev Verifies that the caller is Owner or Admin.
      */
-    modifier onlyAuthorized() {
+    modifier onlyAuthorized() { // D
         require(admin[msg.sender] || msg.sender == owner(), 'FiToken: Caller is not authorized');
         _;
     }
@@ -112,35 +112,35 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @return The total supply of OUSD.
      */
-    function totalSupply() public view override returns (uint256) {
+    function totalSupply() public view override returns (uint256) { // D
         return _totalSupply;
     }
 
     /**
      * @return Low resolution rebasingCreditsPerToken
      */
-    function rebasingCreditsPerToken() public view returns (uint256) {
+    function rebasingCreditsPerToken() public view returns (uint256) { // D
         return _rebasingCreditsPerToken / RESOLUTION_INCREASE;
     }
 
     /**
      * @return Low resolution total number of rebasing credits
      */
-    function rebasingCredits() public view returns (uint256) {
+    function rebasingCredits() public view returns (uint256) { // D
         return _rebasingCredits / RESOLUTION_INCREASE;
     }
 
     /**
      * @return High resolution rebasingCreditsPerToken
      */
-    function rebasingCreditsPerTokenHighres() public view returns (uint256) {
+    function rebasingCreditsPerTokenHighres() public view returns (uint256) { // D
         return _rebasingCreditsPerToken;
     }
 
     /**
      * @return High resolution total number of rebasing credits
      */
-    function rebasingCreditsHighres() public view returns (uint256) {
+    function rebasingCreditsHighres() public view returns (uint256) { // D
         return _rebasingCredits;
     }
 
@@ -150,14 +150,18 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @return  A uint256 representing the amount of base units owned by the
      *          specified address.
      */
-    function balanceOf(address _account) public view override returns (uint256) {
+    function balanceOf(address _account) public view override returns (uint256) { // D
         if (_creditBalances[_account] == 0) return 0;
         return
             _creditBalances[_account].divPrecisely(_creditsPerToken(_account));
     }
 
-    function creditsToBal(uint256 amount) external view returns (uint256) {
-        return amount.divPrecisely(_rebasingCreditsPerToken);
+    /**
+     * @notice Returns the number of tokens from an amount of credits.
+     * @param _amount The amount of credits to convert to tokens.
+     */
+    function creditsToBal(uint256 _amount) external view returns (uint256) { // D
+        return _amount.divPrecisely(_rebasingCreditsPerToken);
     }
 
     /**
@@ -167,7 +171,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @return          (uint256, uint256) Credit balance and credits per token of the
      *                  address
      */
-    function creditsBalanceOf(address _account) public view returns (uint256, uint256) {
+    function creditsBalanceOf(address _account) public view returns (uint256, uint256) { // D
         uint256 cpt = _creditsPerToken(_account);
         if (cpt == 1e27) {
             // For a period before the resolution upgrade, we created all new
@@ -188,7 +192,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @return          (uint256, uint256, bool) Credit balance, credits per token of the
      *                  address, and isUpgraded
      */
-    function creditsBalanceOfHighres(address _account) public view returns (uint256, uint256, bool) {
+    function creditsBalanceOfHighres(address _account) public view returns (uint256, uint256, bool) { // D
         return (
             _creditBalances[_account],
             _creditsPerToken(_account),
@@ -206,7 +210,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         public
         override
         returns (bool)
-    {
+    { // D
         require(_to != address(0), 'FiToken: Transfer to zero address');
         require(!paused, 'FiToken: Token paused');
         require(_value <= balanceOf(msg.sender), 'FiToken: Transfer greater than balance');
@@ -234,7 +238,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     )   public
         override
         returns (bool)
-    {
+    { // D
         require(_to != address(0), 'FiToken: Transfer to zero address');
         require(!paused, 'FiToken: Token paused');
         require(_value <= balanceOf(_from), 'FiToken: Transfer greater than balance');
@@ -267,7 +271,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     )   external
         onlyDiamond
         returns (bool)
-    {
+    { // D
         // Ignore 'paused' check, as this is covered by 'redeemEnabled' in Diamond.
 
         _executeTransfer(_from, _to, _value);
@@ -286,7 +290,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         address _from,
         address _to,
         uint256 _value
-    ) internal {
+    ) internal { // D
         bool isNonRebasingTo = _isNonRebasingAccount(_to);
         bool isNonRebasingFrom = _isNonRebasingAccount(_from);
         // Added this to track yield.
@@ -331,7 +335,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         view
         override
         returns (uint256)
-    {
+    { // D
         return _allowances[_owner][_spender];
     }
 
@@ -352,7 +356,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         public
         override
         returns (bool)
-    {
+    { // D
         _allowances[msg.sender][_spender] = _value;
         emit Approval(msg.sender, _spender, _value);
         return true;
@@ -370,7 +374,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         public
         override
         returns (bool)
-    {
+    { // D
         _allowances[msg.sender][_spender] = _allowances[msg.sender][_spender]
             .add(_addedValue);
         emit Approval(msg.sender, _spender, _allowances[msg.sender][_spender]);
@@ -388,7 +392,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         public
         override
         returns (bool)
-    {
+    { // D
         uint256 oldValue = _allowances[msg.sender][_spender];
         if (_subtractedValue >= oldValue) {
             _allowances[msg.sender][_spender] = 0;
@@ -431,7 +435,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *
      * - `to` cannot be the zero address.
      */
-    function _mint(address _account, uint256 _amount) internal override nonReentrant {
+    function _mint(address _account, uint256 _amount) internal override nonReentrant { // D
         require(_account != address(0), 'FiToken: Mint to the zero address');
 
         bool isNonRebasingAccount = _isNonRebasingAccount(_account);
@@ -461,7 +465,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *      When an account burns tokens without redeeming, the amount burned is
      *      essentially redistributed to the remaining holders upon the next rebase.
      */
-    function burn(address account, uint256 amount) external {
+    function burn(address account, uint256 amount) external { // D
         if (msg.sender != diamond) require(account == msg.sender, 'FiToken: Caller not owner');
         require(!paused, 'FiToken: Token paused');
         _burn(account, amount);
@@ -478,7 +482,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * - `_account` cannot be the zero address.
      * - `_account` must have at least `_amount` tokens.
      */
-    function _burn(address _account, uint256 _amount) internal override nonReentrant {
+    function _burn(address _account, uint256 _amount) internal override nonReentrant { // D
         require(_account != address(0), 'FiToken: Burn from the zero address');
         if (_amount == 0) {
             return;
@@ -525,7 +529,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         internal
         view
         returns (uint256)
-    {
+    { // D
         if (nonRebasingCreditsPerToken[_account] != 0) {
             return nonRebasingCreditsPerToken[_account];
         } else {
@@ -538,7 +542,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *      Also, ensure contracts are non-rebasing if they have not opted in.
      * @param _account Address of the account.
      */
-    function _isNonRebasingAccount(address _account) internal returns (bool) {
+    function _isNonRebasingAccount(address _account) internal returns (bool) { // D
         bool isContract = Address.isContract(_account);
         if (isContract && rebaseState[_account] == RebaseOptions.NotSet) {
             _ensureRebasingMigration(_account);
@@ -550,7 +554,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @dev Ensures internal account for rebasing and non-rebasing credits and
      *      supply is updated following deployment of frozen yield change.
      */
-    function _ensureRebasingMigration(address _account) internal {
+    function _ensureRebasingMigration(address _account) internal { // D
         if (nonRebasingCreditsPerToken[_account] == 0) {
             if (_creditBalances[_account] == 0) {
                 // Since there is no existing balance, we can directly set to
@@ -576,7 +580,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * address's balance will be part of rebases and the account will be exposed
      * to upside and downside.
      */
-    function rebaseOptIn() public nonReentrant {
+    function rebaseOptIn() public nonReentrant { // D
         require(!rebaseLock[msg.sender], 'FiToken: Account locked out of rebases');
         require(_isNonRebasingAccount(msg.sender), 'FiToken: Account has not opted out');
 
@@ -605,7 +609,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * address's balance will be part of rebases and the account will be exposed
      * to upside and downside.
      */
-    function rebaseOptInExternal(address _account) public onlyAuthorized {
+    function rebaseOptInExternal(address _account) public onlyAuthorized { // D
         require(_isNonRebasingAccount(_account), 'FiToken: Account has not opted out');
 
         // Convert balance into the same amount at the current exchange rate
@@ -631,7 +635,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @dev Explicitly mark that an address is non-rebasing.
      */
-    function rebaseOptOut() public nonReentrant {
+    function rebaseOptOut() public nonReentrant { // D
         require(!_isNonRebasingAccount(msg.sender), 'FiToken: Account has not opted in');
 
         // Increase non rebasing supply
@@ -650,7 +654,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @dev Explicitly mark that an address is non-rebasing.
      */
-    function rebaseOptOutExternal(address _account) public onlyAuthorized {
+    function rebaseOptOutExternal(address _account) public onlyAuthorized { // D
         require(!_isNonRebasingAccount(_account), 'FiToken: Account has not opted in');
 
         // Increase non rebasing supply
@@ -675,7 +679,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         external
         onlyDiamond
         nonReentrant
-    {
+    { // D
         require(_totalSupply > 0, 'FiToken: Cannot increase 0 supply');
 
         if (_totalSupply == _newTotalSupply) {
@@ -717,7 +721,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *      Decreases for incoming amount (receive 1,000) = -1,000.
      *      - E.g., minting 1,000 to = -1,000.
      */
-    function getYieldEarned(address _account) external view returns (uint256) {
+    function getYieldEarned(address _account) external view returns (uint256) { // D
         if (yieldExcl[_account] == 0) {
             return 0;
         }
@@ -733,7 +737,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @param   _creditBalance The credit balance to convert.
      * @return  assets The amount converted to token balance.
      */
-    function convertToAssets(uint _creditBalance) public view returns (uint assets) {
+    function convertToAssets(uint _creditBalance) public view returns (uint assets) { // D
         assets = _creditBalance == 0
             ? 0
             : _creditBalance.divPrecisely(_rebasingCreditsPerToken);
@@ -744,7 +748,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @param   _tokenBalance The token balance to convert.
      * @return  credits The amount converted to credit balance.
      */
-    function convertToCredits(uint _tokenBalance) public view returns (uint credits) {
+    function convertToCredits(uint _tokenBalance) public view returns (uint credits) { // D
         credits = _tokenBalance == 0
             ? 0
             : _tokenBalance.mulTruncate(_rebasingCreditsPerToken);

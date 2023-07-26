@@ -18,7 +18,10 @@ module.exports = {
   },
   diamondAbi: {
     name: "COFIMoney",
+    // name: "COFIToken",
     include: ["Facet"],
+    // include: ["Token"],
+    exclude: ["Token"],
     strict: false
   },
   networks: {
