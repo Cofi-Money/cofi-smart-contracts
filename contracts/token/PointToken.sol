@@ -16,7 +16,7 @@ interface ICOFIMoney {
     @author The Stoa Corporation Ltd.
     @title  Point Token Facet
     @notice Merely provides ERC20 representation and therefore ensures Points are viewable in browser wallet.
-            Transfer methods are effectively renounced.
+            Mint, burn, and transfer methods are effectively renounced.
  */
 
 contract PointToken is ERC20 {
@@ -24,47 +24,42 @@ contract PointToken is ERC20 {
     constructor(
         string memory       _name,
         string memory       _symbol,
-        address             _diamond,
-        address[] memory    _fiAssets
+        address             _app,
+        address[] memory    _fi
     ) ERC20(_name, _symbol) { 
-        diamond = _diamond;
-        fiAssets = _fiAssets;
-        admin[msg.sender] = true;
+        app = _app;
+        fi  = _fi;
+        admin[msg.sender] = 1;
     }
 
-    address     diamond;
-    address[]   fiAssets;
+    address     app;
+    address[]   fi;
 
-    mapping(address => bool) admin;
+    mapping(address => uint8) admin;
 
     /**
      * NOTE This contract does not include 'mint'/'burn' functions as does not have a token supply.
             By extension, 'transfer' and 'transferFrom' will not execute.
      */
 
-    function balanceOf(address _account)
-        public
-        view
-        override
-        returns (uint256)
-    {
-        return ICOFIMoney(diamond).getPoints(_account, fiAssets);
+    function balanceOf(address _account) public view override returns (uint256) {
+        return ICOFIMoney(app).getPoints(_account, fi);
     }
 
-    function setFiAssets(address[] memory _fiAssets) external isAdmin {
-        fiAssets = _fiAssets;
+    function setFi(address[] memory _fi) external isAdmin {
+        fi = _fi;
     }
 
-    function setDiamond(address _diamond) external isAdmin {
-        diamond = _diamond;
+    function setApp(address _app) external isAdmin {
+        app = _app;
     }
 
-    function toggleAdmin(address _account) external isAdmin {
-        admin[_account] = !admin[_account];
+    function setAdmin(address _account, uint8 _enabled) external isAdmin {
+        admin[_account] = _enabled;
     }
 
     modifier isAdmin() {
-        require(admin[msg.sender] == true, 'PointToken: Caller not admin');
+        require(admin[msg.sender] > 0, 'PointToken: Caller not admin');
         _;
     }
 }

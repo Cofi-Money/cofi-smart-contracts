@@ -15,7 +15,6 @@ contract ERC20InitDiamond {
     struct Args {
         string name;
         string symbol;
-        uint8 decimals;
         address app;
         // msg.sender is Admin + Whiteslited by default, so do not need to include.
         address[] roles;
@@ -33,7 +32,7 @@ contract ERC20InitDiamond {
 
         s.name      = _args.name;
         s.symbol    = _args.symbol;
-        s.decimals  = _args.decimals;
+        s.decimals  = 18;
 
         s.app = _args.app;
 

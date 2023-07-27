@@ -40,9 +40,9 @@ struct ERC20Storage {
                             ACCESS PARAMS
     //////////////////////////////////////////////////////////////*/
 
-    mapping(address => uint8) admin; // was bool
-    mapping(address => uint8) frozen; // was bool
-    mapping(address => uint8) rebaseLock; // was bool / may change
+    mapping(address => uint8) admin;
+    mapping(address => uint8) frozen;
+    mapping(address => uint8) rebaseLock;
 
     uint8 paused;
 

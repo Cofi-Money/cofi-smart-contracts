@@ -308,18 +308,34 @@ describe("Test wrappers in app context", function() {
         await wop_op.transfer(await wyvUSDC.getAddress(), "10000000000000000000") // 10 OP
         console.log("Transferred OP to wrapper")
 
+        const receiver = "0x79b68a8C62AA0FEdA39d08E4c6755928aFF576C5"
+
         return {
-            owner, feeCollector, signer, wueSigner, wyvUSDC, fiUSD, usdc, cofiMoney
+            owner, feeCollector, signer, wueSigner, wyvUSDC, fiUSD, usdc, cofiMoney, receiver
         }
     }
 
-    it("Should transfer", async function() {
+    it("Should meet ERC20", async function() {
 
-        const { owner, backupOwner, fiUSD } = await loadFixture(deploy)
+        const { owner, receiver, fiUSD, backupOwner, wueSigner } = await loadFixture(deploy)
 
-        await fiUSD.transfer((await backupOwner.getAddress()), "9000000000000000000000")
+        await fiUSD.transfer(receiver, "500000000000000000000")
 
-        console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(await backupOwner.getAddress()))
+        // console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(await backupOwner.getAddress()))
+        console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(receiver))
+        console.log("Total supply: " + await fiUSD.totalSupply())
+        console.log("Name: " + await fiUSD.name())
+        console.log("Symbol: " + await fiUSD.symbol())
+        console.log("Decimals: " + await fiUSD.decimals())
+
+        await fiUSD.approve(whaleUsdcEth, "100000000000000000000")
+        console.log("Allowance: " + await fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
+        const _fiUSD = (await ethers.getContractAt(FIUSD_ABI, await fiUSD.getAddress())).connect(wueSigner)
+        await _fiUSD.transferFrom(await owner.getAddress(), receiver, "50000000000000000000")
+        console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(receiver))
+        console.log("Receiver _fiUSD bal: " + await _fiUSD.balanceOf(receiver))
+        console.log("Allowance: " + await fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
+        console.log("_Allowance: " + await _fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
     })
 
     it("Should harvest, rebase for fiUSD, and redeem", async function() {

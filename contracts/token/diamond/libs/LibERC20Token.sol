@@ -6,7 +6,7 @@ import { Address } from '@openzeppelin/contracts/utils/Address.sol';
 import { IFiToken } from ".././interfaces/IFiToken.sol";
 import '../../utils/StableMath.sol';
 
-library LibToken {
+library LibERC20Token {
     using StableMath for uint256;
     using StableMath for int256;
     using SafeMath for uint256;
@@ -60,7 +60,7 @@ library LibToken {
 
         s._creditBalances[_from] = s._creditBalances[_from].sub(
             creditsDeducted,
-            'LibToken: Transfer amount exceeds balance'
+            'LibERC20Token: Transfer amount exceeds balance'
         );
         s._creditBalances[_to] = s._creditBalances[_to].add(creditsCredited);
 
@@ -92,11 +92,11 @@ library LibToken {
     ) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(_to != address(0), 'LibToken: Transfer to zero address');
-        require(s.paused < 1, 'LibToken: Token paused');
-        require(_value <= _balanceOf(_from), 'LibToken: Transfer greater than balance');
-        require(s.frozen[_from] < 1, 'LibToken: Sender account is frozen');
-        require(s.frozen[_to] < 1, 'LibToken: Recipient account is frozen');
+        require(_to != address(0), 'LibERC20Token: Transfer to zero address');
+        require(s.paused < 1, 'LibERC20Token: Token paused');
+        require(_value <= _balanceOf(_from), 'LibERC20Token: Transfer greater than balance');
+        require(s.frozen[_from] < 1, 'LibERC20Token: Sender account is frozen');
+        require(s.frozen[_to] < 1, 'LibERC20Token: Recipient account is frozen');
 
         if (_from != msg.sender || s._allowances[_from][msg.sender] != type(uint256).max) {
             s._allowances[_from][msg.sender] = s._allowances[_from][msg.sender].sub(_value);
@@ -215,7 +215,7 @@ library LibToken {
     function _mint(address _account, uint256 _amount) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(_account != address(0), 'LibToken: Mint to the zero address');
+        require(_account != address(0), 'LibERC20Token: Mint to the zero address');
 
         bool isNonRebasingAccount = _isNonRebasingAccount(_account);
 
@@ -234,7 +234,7 @@ library LibToken {
 
         s._totalSupply = s._totalSupply.add(_amount);
 
-        require(s._totalSupply < MAX_SUPPLY, 'LibToken: Max supply');
+        require(s._totalSupply < MAX_SUPPLY, 'LibERC20Token: Max supply');
     }
 
     /**
@@ -245,8 +245,8 @@ library LibToken {
     function _rebaseOptIn() internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(s.rebaseLock[msg.sender] < 1, 'LibToken: Account locked out of rebases');
-        require(_isNonRebasingAccount(msg.sender), 'LibToken: Account has not opted out');
+        require(s.rebaseLock[msg.sender] < 1, 'LibERC20Token: Account locked out of rebases');
+        require(_isNonRebasingAccount(msg.sender), 'LibERC20Token: Account has not opted out');
 
         // Convert balance into the same amount at the current exchange rate
         uint256 newCreditBalance = s._creditBalances[msg.sender]
@@ -276,7 +276,7 @@ library LibToken {
     function _rebaseOptInExternal(address _account) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(_isNonRebasingAccount(_account), 'LibToken: Account has not opted out');
+        require(_isNonRebasingAccount(_account), 'LibERC20Token: Account has not opted out');
 
         // Convert balance into the same amount at the current exchange rate
         uint256 newCreditBalance = s._creditBalances[_account]
@@ -312,7 +312,7 @@ library LibToken {
     function _burn(address _account, uint256 _amount) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(_account != address(0), 'LibToken: Burn from the zero address');
+        require(_account != address(0), 'LibERC20Token: Burn from the zero address');
         if (_amount == 0) {
             return;
         }
@@ -331,7 +331,7 @@ library LibToken {
             s._creditBalances[_account] = s._creditBalances[_account].sub(
                 creditAmount
             );
-        else revert('LibToken: Remove exceeds balance');
+        else revert('LibERC20Token: Remove exceeds balance');
 
         // Remove from the credit tallies and non-rebasing supply
         if (isNonRebasingAccount)
@@ -347,7 +347,7 @@ library LibToken {
     function _rebaseOptOut() internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(!_isNonRebasingAccount(msg.sender), 'LibToken: Account has not opted in');
+        require(!_isNonRebasingAccount(msg.sender), 'LibERC20Token: Account has not opted in');
 
         // Increase non rebasing supply
         s.nonRebasingSupply = s.nonRebasingSupply.add(_balanceOf(msg.sender));
@@ -368,7 +368,7 @@ library LibToken {
     function _rebaseOptOutExternal(address _account) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(!_isNonRebasingAccount(_account), 'LibToken: Account has not opted in');
+        require(!_isNonRebasingAccount(_account), 'LibERC20Token: Account has not opted in');
 
         // Increase non rebasing supply
         s.nonRebasingSupply = s.nonRebasingSupply.add(_balanceOf(_account));
@@ -391,7 +391,7 @@ library LibToken {
     function _changeSupply(uint256 _newTotalSupply) internal {
         ERC20Storage storage s = LibERC20Storage.diamondStorage();
 
-        require(s._totalSupply > 0, 'LibToken: Cannot increase 0 supply');
+        require(s._totalSupply > 0, 'LibERC20Token: Cannot increase 0 supply');
 
         if (s._totalSupply == _newTotalSupply) {
             emit TotalSupplyUpdatedHighres(
@@ -409,7 +409,7 @@ library LibToken {
             s._totalSupply.sub(s.nonRebasingSupply)
         );
 
-        require(s._rebasingCreditsPerToken > 0, 'LibToken: Invalid change in supply');
+        require(s._rebasingCreditsPerToken > 0, 'LibERC20Token: Invalid change in supply');
 
         s._totalSupply = s._rebasingCredits
             .divPrecisely(s._rebasingCreditsPerToken)
@@ -455,9 +455,9 @@ library LibToken {
             return 0;
         }
         else if (s.yieldExcl[_account] > 0) {
-            return LibToken._balanceOf(_account) + s.yieldExcl[_account].abs();
+            return LibERC20Token._balanceOf(_account) + s.yieldExcl[_account].abs();
         } else {
-            return LibToken._balanceOf(_account) - s.yieldExcl[_account].abs();
+            return LibERC20Token._balanceOf(_account) - s.yieldExcl[_account].abs();
         }
     }
 }

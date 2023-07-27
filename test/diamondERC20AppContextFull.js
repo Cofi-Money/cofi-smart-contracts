@@ -13,9 +13,9 @@ const WETH_ABI = require("./abi/WETH.json")
 const OP_ABI = require("./abi/OP.json")
 const YVUSDC_ABI = require("./abi/YVUSDC.json")
 const YVETH_ABI = require("./abi/YVETH.json")
-
 const WBTC_ABI = require("./abi/WBTC.json")
 const SOWBTC_ABI = require("./abi/SOWBTC.json")
+const FI_ABI = require("./abi/COFIToken.json")
 
 const USDC_Addr = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607"
 const WETH_Addr = "0x4200000000000000000000000000000000000006"
@@ -25,11 +25,9 @@ const YVETH_Addr = "0x5B977577Eb8a480f63e11FC615D6753adB8652Ae"
 const YVOP_Addr = "0x7D2382b1f8Af621229d33464340541Db362B4907"
 const StakingRewards_YVUSDC_Addr = "0xB2c04C55979B6CA7EB10e666933DE5ED84E6876b"
 const StakingRewards_YVETH_Addr = "0xE35Fec3895Dcecc7d2a91e8ae4fF3c0d43ebfFE0"
-
 const WBTC_Addr = "0x68f180fcCe6836688e9084f035309E29Bf0A2095"
 const SOWBTC_Addr = "0x33865E09A572d4F1CC4d75Afc9ABcc5D3d4d867D"
 const COMPTROLLER_Addr = "0x60cf091cd3f50420d50fd7f707414d0df4751c58"
-
 const NULL_Addr = "0x0000000000000000000000000000000000000000"
 
 /* Yearn Swap Params */
@@ -114,39 +112,40 @@ describe("Test wrappers in app context", function() {
         console.log("wsoBTC deployed: ", await wsoBTC.getAddress())
         await wsoBTC.setRoute("3000", WETH_Addr, "3000")
 
-        /* Deploy COFI tokens */
-
-        const FIUSD = await ethers.getContractFactory("FiToken")
-        const fiUSD = await FIUSD.deploy(
-            "COFI Dollar",
-            "fiUSD"
-        )
-        await fiUSD.waitForDeployment()
-        console.log("fiUSD deployed: " + await fiUSD.getAddress())
-
-        const FIETH = await ethers.getContractFactory("FiToken")
-        const fiETH = await FIETH.deploy(
-            "COFI Ethereum",
-            "fiETH"
-        )
-        await fiETH.waitForDeployment()
-        console.log("fiETH deployed: " + await fiETH.getAddress())
-
-        const FIBTC = await ethers.getContractFactory("FiToken")
-        const fiBTC = await FIBTC.deploy(
-            "COFI Bitcoin",
-            "fiBTC"
-        )
-        await fiBTC.waitForDeployment()
-        console.log("fiBTC deployed: " + await fiBTC.getAddress())
-
         // Deploy DiamondCutFacet
         const DiamondCutFacet = await ethers.getContractFactory("DiamondCutFacet")
         const diamondCutFacet = await DiamondCutFacet.deploy()
         await diamondCutFacet.waitForDeployment()
         console.log("DiamondCutFacet deployed: ", await diamondCutFacet.getAddress())
+
+        // Deploy fiUSD Diamond
+        const FIUSDDiamond = await ethers.getContractFactory("Diamond")
+        const fiUSDDiamond = await FIUSDDiamond.deploy(
+            await owner.getAddress(),
+            await diamondCutFacet.getAddress()
+        )
+        await fiUSDDiamond.waitForDeployment()
+        console.log("fiUSDDiamond deployed: ", await fiUSDDiamond.getAddress())
+
+        // Deploy fiETH Diamond
+        const FIETHDiamond = await ethers.getContractFactory("Diamond")
+        const fiETHDiamond = await FIETHDiamond.deploy(
+            await owner.getAddress(),
+            await diamondCutFacet.getAddress()
+        )
+        await fiETHDiamond.waitForDeployment()
+        console.log("fiETHDiamond deployed: ", await fiETHDiamond.getAddress())
+
+        // Deploy fiBTC Diamond
+        const FIBTCDiamond = await ethers.getContractFactory("Diamond")
+        const fiBTCDiamond = await FIBTCDiamond.deploy(
+            await owner.getAddress(),
+            await diamondCutFacet.getAddress()
+        )
+        await fiBTCDiamond.waitForDeployment()
+        console.log("fiBTCDiamond deployed: ", await fiBTCDiamond.getAddress())
         
-        // Deploy Diamond
+        // Deploy App Diamond
         const Diamond = await ethers.getContractFactory("Diamond")
         const diamond = await Diamond.deploy(
             await owner.getAddress(),
@@ -155,13 +154,104 @@ describe("Test wrappers in app context", function() {
         await diamond.waitForDeployment()
         console.log("Diamond deployed: ", await diamond.getAddress())
 
-        // Set Diamond address in FiToken contracts.
-        await fiUSD.setDiamond(await diamond.getAddress())
-        console.log("Diamond address set in fiUSD")
-        await fiETH.setDiamond(await diamond.getAddress())
-        console.log("Diamond address set in fiETH")
-        await fiBTC.setDiamond(await diamond.getAddress())
-        console.log("Diamond address set in fiBTC")
+        /* Token Diamond */
+        // Deploy ERC20DiamondInit
+        // DiamondInit provides a function that is called when the diamond is upgraded to initialize state variables
+        // Read about how the diamondCut function works here: https://eips.ethereum.org/EIPS/eip-2535#addingreplacingremoving-functions
+        const ERC20DiamondInit = await ethers.getContractFactory('ERC20InitDiamond')
+        const erc20DiamondInit = await ERC20DiamondInit.deploy()
+        await erc20DiamondInit.waitForDeployment()
+        console.log('ERC20DiamondInit deployed:', await erc20DiamondInit.getAddress())
+
+        // Deploy facets
+        console.log('')
+        console.log('Deploying facets')
+        const ERC20FacetNames = [
+        'DiamondLoupeFacet',
+        'OwnershipFacet',
+        'TokenAccessFacet',
+        'TokenERC20Facet',
+        'TokenRebaseFacet'
+        ]
+        const erc20Cut = []
+        for (const ERC20FacetName of ERC20FacetNames) {
+            const ERC20Facet = await ethers.getContractFactory(ERC20FacetName)
+            const erc20Facet = await ERC20Facet.deploy()
+            await erc20Facet.waitForDeployment()
+            console.log(`${ERC20FacetName} deployed: ${await erc20Facet.getAddress()}`)
+            erc20Cut.push({
+                facetAddress: await erc20Facet.getAddress(),
+                action: FacetCutAction.Add,
+                functionSelectors: getSelectors(erc20Facet)
+            })
+        }
+       
+        const fiUSDInitArgs = [{
+            name:   "COFI Dollar",
+            symbol: "fiUSD",
+            app:    await diamond.getAddress(),
+            roles: [
+                await owner.getAddress(),
+                await backupOwner.getAddress(),
+            ]
+        }]
+
+        const fiETHInitArgs = [{
+            name:   "COFI Ethereum",
+            symbol: "fiETH",
+            app:    await diamond.getAddress(),
+            roles: [
+                await owner.getAddress(),
+                await backupOwner.getAddress(),
+            ]
+        }]
+
+        const fiBTCInitArgs = [{
+            name:   "COFI Bitcoin",
+            symbol: "fiBTC",
+            app:    await diamond.getAddress(),
+            roles: [
+                await owner.getAddress(),
+                await backupOwner.getAddress(),
+            ]
+        }]
+        
+        // Upgrade diamond with facets
+        console.log('')
+        console.log('ERC20 Diamond Cut:', erc20Cut)
+        const fiUSDDiamondCut = await ethers.getContractAt('IDiamondCut', await fiUSDDiamond.getAddress())
+        const fiETHDiamondCut = await ethers.getContractAt('IDiamondCut', await fiETHDiamond.getAddress())
+        const fiBTCDiamondCut = await ethers.getContractAt('IDiamondCut', await fiBTCDiamond.getAddress())
+        let erc20Tx
+        let erc20Receipt
+
+        // Call to init function
+        let erc20FunctionCall = erc20DiamondInit.interface.encodeFunctionData('init', fiUSDInitArgs)
+        erc20Tx = await fiUSDDiamondCut.diamondCut(erc20Cut, await erc20DiamondInit.getAddress(), erc20FunctionCall)
+        console.log('ERC20 Diamond cut tx: ', erc20Tx.hash)
+        erc20Receipt = await erc20Tx.wait()
+        if (!erc20Receipt.status) {
+        throw Error(`ERC20 Diamond upgrade failed: ${erc20Tx.hash}`)
+        }
+        console.log('Completed fiUSD diamond cut')
+
+        erc20FunctionCall = erc20DiamondInit.interface.encodeFunctionData('init', fiETHInitArgs)
+        erc20Tx = await fiETHDiamondCut.diamondCut(erc20Cut, await erc20DiamondInit.getAddress(), erc20FunctionCall)
+        console.log('ERC20 Diamond cut tx: ', erc20Tx.hash)
+        erc20Receipt = await erc20Tx.wait()
+        if (!erc20Receipt.status) {
+        throw Error(`ERC20 Diamond upgrade failed: ${erc20Tx.hash}`)
+        }
+        console.log('Completed fiETH diamond cut')
+
+        erc20FunctionCall = erc20DiamondInit.interface.encodeFunctionData('init', fiBTCInitArgs)
+        erc20Tx = await fiBTCDiamondCut.diamondCut(erc20Cut, await erc20DiamondInit.getAddress(), erc20FunctionCall)
+        console.log('ERC20 Diamond cut tx: ', erc20Tx.hash)
+        erc20Receipt = await erc20Tx.wait()
+        if (!erc20Receipt.status) {
+        throw Error(`ERC20 Diamond upgrade failed: ${erc20Tx.hash}`)
+        }
+        console.log('Completed fiBTC diamond cut')
 
         // Deploy DiamondInit
         // DiamondInit provides a function that is called when the diamond is upgraded to initialize state variables
@@ -198,19 +288,19 @@ describe("Test wrappers in app context", function() {
         }
        
         const initArgs = [{
-            fiUSD:  (await fiUSD.getAddress()),
-            fiETH:  (await fiETH.getAddress()),
-            fiBTC:  (await fiBTC.getAddress()),
-            vUSDC:  (await wyvUSDC.getAddress()),
-            vETH:   (await wyvETH.getAddress()),
-            vBTC:   (await wsoBTC.getAddress()),
+            fiUSD:  await fiUSDDiamond.getAddress(),
+            fiETH:  await fiETHDiamond.getAddress(),
+            fiBTC:  await fiBTCDiamond.getAddress(),
+            vUSDC:  await wyvUSDC.getAddress(),
+            vETH:   await wyvETH.getAddress(),
+            vBTC:   await wsoBTC.getAddress(),
             USDC:   USDC_Addr,
             wETH:   WETH_Addr,
             wBTC:   WBTC_Addr,
             roles: [
-                (await whitelister.getAddress()),
-                (await backupOwner.getAddress()),
-                (await feeCollector.getAddress())
+                await whitelister.getAddress(),
+                await backupOwner.getAddress(),
+                await feeCollector.getAddress()
             ]
         }]
         
@@ -243,9 +333,9 @@ describe("Test wrappers in app context", function() {
             "COFI",
             await diamond.getAddress(),
             [
-                await fiUSD.getAddress(),
-                await fiETH.getAddress(),
-                await fiBTC.getAddress()
+                await fiUSDDiamond.getAddress(),
+                await fiETHDiamond.getAddress(),
+                await fiBTCDiamond.getAddress()
             ]
         )
         await point.waitForDeployment()
@@ -270,6 +360,7 @@ describe("Test wrappers in app context", function() {
         /* Initial deposits */
         const usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(signer)
         await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
+        const fiUSD = (await ethers.getContractAt(FI_ABI, await fiUSDDiamond.getAddress())).connect(signer)
         await cofiMoney.underlyingToFi(
             "1000000000",
             "997500000", // 0.25% slippage
@@ -280,8 +371,10 @@ describe("Test wrappers in app context", function() {
         )
         console.log("t0 Owner fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
         console.log("t0 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+
         const weth = (await ethers.getContractAt(WETH_ABI, WETH_Addr)).connect(signer)
         await weth.approve(await diamond.getAddress(), "500000000000000000") // 0.5 wETH
+        const fiETH = (await ethers.getContractAt(FI_ABI, await fiETHDiamond.getAddress())).connect(signer)
         await cofiMoney.underlyingToFi(
             "500000000000000000",
             "498750000000000000", // 0.25% slippage
@@ -294,6 +387,7 @@ describe("Test wrappers in app context", function() {
         console.log("t0 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
         const wbtc = (await ethers.getContractAt(WBTC_ABI, WBTC_Addr)).connect(signer)
         await wbtc.approve(await diamond.getAddress(), "10000000") // 0.1 wBTC
+        const fiBTC = (await ethers.getContractAt(FI_ABI, await fiBTCDiamond.getAddress())).connect(signer)
         await cofiMoney.underlyingToFi(
             "10000000",
             "99750000", // 0.25% slippage
@@ -309,16 +403,41 @@ describe("Test wrappers in app context", function() {
 
         /* Set up executable yield distribution */
         const wop_op = (await ethers.getContractAt(OP_ABI, OP_Addr)).connect(wopSigner)
-        await wop_op.transfer(await wyvUSDC.getAddress(), "10000000000000000000") // 10 OP
-        await wop_op.transfer(await wyvETH.getAddress(), "10000000000000000000") // 10 OP
-        await wop_op.transfer(await wsoBTC.getAddress(), "10000000000000000000") // 10 OP
+        await wop_op.transfer(await wyvUSDC.getAddress(), "20000000000000000000") // 20 OP
+        await wop_op.transfer(await wyvETH.getAddress(), "20000000000000000000") // 20 OP
+        await wop_op.transfer(await wsoBTC.getAddress(), "20000000000000000000") // 20 OP
         console.log("Transferred OP to wrappers")
+
+        const receiver = "0x79b68a8C62AA0FEdA39d08E4c6755928aFF576C5"
 
         return {
             owner, feeCollector, signer, wueSigner, wbtSigner, wyvUSDC, wyvETH, wsoBTC,
-            fiUSD, fiETH, fiBTC, usdc, weth, wbtc, cofiMoney, point
+            fiUSD, fiETH, fiBTC, usdc, weth, wbtc, cofiMoney, point, receiver
         }
     }
+
+    it("Should meet ERC20", async function() {
+
+        const { owner, receiver, fiUSD, backupOwner, wueSigner } = await loadFixture(deploy)
+
+        await fiUSD.transfer(receiver, "500000000000000000000")
+
+        // console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(await backupOwner.getAddress()))
+        console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(receiver))
+        console.log("Total supply: " + await fiUSD.totalSupply())
+        console.log("Name: " + await fiUSD.name())
+        console.log("Symbol: " + await fiUSD.symbol())
+        console.log("Decimals: " + await fiUSD.decimals())
+
+        await fiUSD.approve(whaleUsdcEth, "100000000000000000000")
+        console.log("Allowance: " + await fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
+        const _fiUSD = (await ethers.getContractAt(FI_ABI, await fiUSD.getAddress())).connect(wueSigner)
+        await _fiUSD.transferFrom(await owner.getAddress(), receiver, "50000000000000000000")
+        console.log("Receiver fiUSD bal: " + await fiUSD.balanceOf(receiver))
+        console.log("Receiver _fiUSD bal: " + await _fiUSD.balanceOf(receiver))
+        console.log("Allowance: " + await fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
+        console.log("_Allowance: " + await _fiUSD.allowance(await owner.getAddress(), whaleUsdcEth))
+    })
 
     it("Should harvest, rebase for fiUSD, and redeem", async function() {
 

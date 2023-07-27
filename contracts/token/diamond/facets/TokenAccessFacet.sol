@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { Modifiers } from "../libs/LibERC20Storage.sol";
-import { LibToken } from '../libs/LibToken.sol';
+import { LibERC20Token } from '../libs/LibERC20Token.sol';
 
 /**
 
@@ -32,7 +32,7 @@ contract TokenAccessFacet is Modifiers {
      */
     function setFrozen(address _account, uint8 _enabled) external onlyAuthorized returns (bool) {
         require(
-            !LibToken._isNonRebasingAccount(_account),
+            !LibERC20Token._isNonRebasingAccount(_account),
             'AccessFacet: Account must be opted out before freezing'
         );
         s.frozen[_account] = _enabled;
