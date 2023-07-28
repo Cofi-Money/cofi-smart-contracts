@@ -6,7 +6,7 @@ import { LibERC20Token } from '../libs/LibERC20Token.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 // import { ERC20Permit } from '../../utils/draft-ERC20Permit.sol';
 
-// Review ERC20 integration (e.g., permits, overrides, etc.)
+/// @dev To-do: Add permit, reentrancy guard, and relevant testing.
 
 contract TokenERC20Facet is IERC20, Modifiers {
 

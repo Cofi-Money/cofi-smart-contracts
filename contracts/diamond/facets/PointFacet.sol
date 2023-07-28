@@ -44,6 +44,7 @@ contract PointFacet is Modifiers {
         address[] memory    _accounts,
         address             _fi
     )   external
+        nonReentrant
         returns (bool)
     {
         /**

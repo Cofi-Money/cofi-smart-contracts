@@ -257,31 +257,6 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     }
 
     /**
-     * @notice  Redeem function, only callable from Diamond, to return fiAssets.
-     * @dev     Skips approval check.
-     * @param _from     The address to redeem fiAssets from.
-     * @param _to       The 'feeCollector' address to receive fiAssets.
-     * @param _value    The amount of fiAssets to redeem.
-     * @return          True on success.
-     */
-    function redeem(
-        address _from,
-        address _to,
-        uint256 _value
-    )   external
-        onlyDiamond
-        returns (bool)
-    { // D
-        // Ignore 'paused' check, as this is covered by 'redeemEnabled' in Diamond.
-
-        _executeTransfer(_from, _to, _value);
-
-        emit Transfer(_from, _to, _value);
-
-        return true;
-    }
-
-    /**
      * @param _from     The address you want to send tokens from.
      * @param _to       The address you want to transfer to.
      * @param _value    Amount of fiAssets to transfer

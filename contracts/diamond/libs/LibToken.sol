@@ -11,7 +11,7 @@ library LibToken {
     using PercentageMath for uint256;
     using StableMath for uint256;
 
-    /// @notice Emitted when a transfer is executed.
+    /// @notice Emitted when a transfer operation is executed.
     ///
     /// @param  asset           The asset transferred (underlying, share, or fi token).
     /// @param  amount          The amount transferred.
@@ -19,27 +19,27 @@ library LibToken {
     /// @param  recipient       The recipient of the transfer.
     event Transfer(address indexed asset, uint256 amount, address indexed transferFrom, address indexed recipient);
 
-    /// @notice Emitted when a fi is minted.
+    /// @notice Emitted when a fi token is minted.
     ///
     /// @param  fi      The address of the minted fi token.
     /// @param  amount  The amount of fis minted.
     /// @param  to      The recipient of the minted fis.
     event Mint(address indexed fi, uint256 amount, address indexed to);
 
-    /// @notice Emitted when a fi is burned.
+    /// @notice Emitted when a fi token is burned.
     ///
     /// @param  fi      The address of the burned fi.
     /// @param  amount  The amount of fis burned.
     /// @param  from    The account burned from.
     event Burn(address indexed fi, uint256 amount, address indexed from);
 
-    /// @notice Emitted when a fi supply update is executed.
+    /// @notice Emitted when the total supply of a fi token is updated.
     ///
     /// @param  fi      The fi token with updated supply.
     /// @param  assets  The new total supply.
     /// @param  yield   The amount of yield added.
     /// @param  rCPT    Rebasing credits per token of FiToken.sol contract (used to calc interest rate).
-    /// @param  fee     The service fee captured, which is a share of the yield generated.
+    /// @param  fee     The service fee captured - a share of the yield.
     event TotalSupplyUpdated(address indexed fi, uint256 assets, uint256 yield, uint256 rCPT, uint256 fee);
 
     /// @notice Emitted when a deposit action is executed.
@@ -143,23 +143,6 @@ library LibToken {
 
         IFiToken(_fi).burn(_from, _amount);
         emit Burn(_fi, _amount, _from);
-    }
-
-    /// @notice Calls redeem operation on FiToken contract.
-    ///
-    /// @dev    Skips approval check.
-    ///
-    /// @param _fi      The fi token to redeem.
-    /// @param _from    The account to redeem from.
-    /// @param _amount  The amount of fi tokens to redeem.
-    function _redeem(
-        address _fi,
-        address _from,
-        uint256 _amount
-    ) internal {
-        AppStorage storage s = LibAppStorage.diamondStorage();
-
-        IFiToken(_fi).redeem(_from, s.feeCollector, _amount);
     }
 
     /// @notice Updates the total supply of the fi token.

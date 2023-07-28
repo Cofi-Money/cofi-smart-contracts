@@ -6,7 +6,8 @@ import { LibToken } from '../libs/LibToken.sol';
 import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -42,6 +43,7 @@ contract SupplyFacet is Modifiers {
         address _recipient,
         address _referral
     )   external
+        nonReentrant isWhitelisted mintEnabled(_fi) minDeposit(_underlyingIn, _fi)
         returns (uint256 mintAfterFee)
     {
         mintAfterFee = IERC4626(s.vault[_fi]).asset() == s.underlying[_fi] ?
@@ -79,9 +81,7 @@ contract SupplyFacet is Modifiers {
         address _depositFrom,
         address _recipient,
         address _referral
-    )
-        public
-        isWhitelisted mintEnabled(_fi) minDeposit(_underlyingIn, _fi)
+    )   internal
         returns (uint256 mintAfterFee)
     {
         // Transfer underlying to this contract first to prevent user having to 
@@ -111,7 +111,7 @@ contract SupplyFacet is Modifiers {
             )
         );
 
-        require(assets >= _fiOutMin, "SupplyFacet: Slippage exceeded");
+        require(assets >= _fiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_fi, assets);
         mintAfterFee = assets - fee;
@@ -147,9 +147,8 @@ contract SupplyFacet is Modifiers {
         address _depositFrom,
         address _recipient,
         address _referral
-    )
-        public
-        isWhitelisted mintEnabled(_fi) minDeposit(_underlyingIn, _fi) extGuardOn
+    )   internal
+        extGuardOn
         returns (uint256 mintAfterFee)
     {
         // Transfer underlying to this contract first to prevent user having to 
@@ -167,8 +166,8 @@ contract SupplyFacet is Modifiers {
             _fi,
             _underlyingIn
         )); // Will fail here if set vault is not using a derivative.
-        require(success, "SupplyFacet: Underlying to derivative operation failed");
-        require(s.RETURN_ASSETS > 0, "SupplyFacet: Zero return assets received");
+        require(success, 'SupplyFacet: Underlying to derivative operation failed');
+        require(s.RETURN_ASSETS > 0, 'SupplyFacet: Zero return assets received');
 
         SafeERC20.safeApprove(
             IERC20(IERC4626(s.vault[_fi]).asset()),
@@ -188,10 +187,10 @@ contract SupplyFacet is Modifiers {
                 s.vault[_fi]
             )
         ));
-        require(success, "SupplyFacet: Convert to underlying operation failed");
+        require(success, 'SupplyFacet: Convert to underlying operation failed');
 
         uint256 assets = LibToken._toFiDecimals(_fi, s.RETURN_ASSETS);
-        require(assets >= _fiOutMin, "SupplyFacet: Slippage exceeded");
+        require(assets >= _fiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_fi, assets);
         mintAfterFee = assets - fee;
@@ -207,95 +206,6 @@ contract SupplyFacet is Modifiers {
         if (_referral != address(0)) LibReward._referReward(_referral);
 
         emit LibToken.Deposit(s.underlying[_fi], _underlyingIn, _depositFrom, fee);
-    }
-
-    /// @dev    (!) SHARES NOT HELD IN DIAMOND NECESSARILY - NEED T0 AMEND.
-    /// @notice Converts a supported share token into a fi token (e.g., yvUSDC to fiUSD).
-    ///
-    /// @param  _sharesIn       The amount of shares to deposit.
-    /// @param  _fiOutMin       The minimum amount of fi tokens received (before fees).
-    /// @param  _fi             The fi token to mint.
-    /// @param  _depositFrom    The account to deposit shares from.
-    /// @param  _recipient      The recipient of the fi tokens.
-    /// @param  _referral       The referral account (address(0) if none provided).
-    function sharesToFi(
-        uint256 _sharesIn,
-        uint256 _fiOutMin,
-        address _fi,
-        address _depositFrom,
-        address _recipient,
-        address _referral
-    )
-        external isWhitelisted mintEnabled(_fi)
-        minDeposit(LibVault._getAssets(_sharesIn, s.vault[_fi]), _fi)
-        returns (uint256 mintAfterFee)
-    {
-        // Backing  are held in the diamond contract.
-        LibToken._transferFrom(s.vault[_fi], _sharesIn, _depositFrom, address(this));
-
-        uint256 assets = LibToken._toFiDecimals(
-            _fi,
-            LibVault._getAssets(_sharesIn, s.vault[_fi])
-        );
-
-        require(assets >= _fiOutMin, "SupplyFacet: Slippage exceeded");
-
-        uint256 fee = LibToken._getMintFee(_fi, assets);
-        mintAfterFee = assets - fee;
-
-        // Capture mint fee in fi tokens.
-        if (fee > 0) {
-            LibToken._mint(_fi, s.feeCollector, fee);
-        }
-        LibToken._mint(_fi, _recipient, mintAfterFee);
-
-        // Distribute rewards
-        LibReward._initReward();
-        if (_referral != address(0)) {
-            LibReward._referReward(_referral);
-        }
-
-        emit LibToken.Deposit(
-            s.underlying[_fi],
-            LibVault._getAssets(_sharesIn, s.vault[_fi]),
-            _depositFrom,
-            fee
-        );
-    }
-
-    /// @dev    (!) SHARES NOT HELD IN DIAMOND NECESSARILY - NEED T0 AMEND.
-    /// @notice Converts a fi token to its collateral share token (e.g., fiUSD to yvUSDC).
-    ///
-    /// @param  _fiIn           The amount of fi tokens to redeem.
-    /// @param  _sharesOutMin   The minimum amount of shares received (AFTER fees).
-    /// @param  _fi             The fi token to redeem (e.g., fiUSD).
-    /// @param  _depositFrom    The account to deposit fi tokens from.
-    /// @param  _recipient      The recipient of the shares.
-    function fiToShares(
-        uint256 _fiIn,
-        uint256 _sharesOutMin,
-        address _fi,
-        address _depositFrom,
-        address _recipient
-    )   external
-        isWhitelisted redeemEnabled(_fi) minWithdraw(_fiIn, _fi)
-        returns (uint256 burnAfterFee)
-    {
-        _depositFrom == msg.sender ?
-            LibToken._redeem(_fi, msg.sender, _fiIn) :
-            LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
-
-        uint256 fee = LibToken._getRedeemFee(_fi, _fiIn);
-        burnAfterFee = _fiIn - fee;
-
-        // Redemption fee is captured by retaining 'fee' amount.
-        LibToken._burn(_fi, s.feeCollector, burnAfterFee);
-
-        uint256 shares = LibVault._getShares(burnAfterFee, s.vault[_fi]);
-        require(shares >= _sharesOutMin, "SupplyFacet: Slippage exceeded");
-
-        LibToken._transfer(s.vault[_fi], shares, _recipient);
-        emit LibToken.Withdraw(s.underlying[_fi], _fiIn, _depositFrom, fee);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -317,6 +227,7 @@ contract SupplyFacet is Modifiers {
         address _depositFrom,
         address _recipient
     )   external
+        nonReentrant isWhitelisted redeemEnabled(_fi) minWithdraw(_fiIn, _fi)
         returns (uint256 burnAfterFee)
     {
         burnAfterFee = IERC4626(s.vault[_fi]).asset() == s.underlying[_fi] ?
@@ -352,28 +263,27 @@ contract SupplyFacet is Modifiers {
         address _fi,
         address _depositFrom,
         address _recipient
-    )   public
-        isWhitelisted redeemEnabled(_fi) minWithdraw(_fiIn, _fi)
+    )   internal
         returns (uint256 burnAfterFee)
     {
-        _depositFrom == msg.sender ?
-            LibToken._redeem(_fi, msg.sender, _fiIn) :
-            LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
-
+        console.log('Entering fiToUnderlyingMutual()');
+        LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
+        console.log('Transferred to feeCollector');
         uint256 fee = LibToken._getRedeemFee(_fi, _fiIn);
         burnAfterFee = _fiIn - fee;
-
+        console.log('Computed redeem fee');
         // Redemption fee is captured by retaining 'fee' amount.
         LibToken._burn(_fi, s.feeCollector, burnAfterFee);
-
+        console.log('Burned');
         // Redeems assets directly to recipient (does not traverse through Diamond).
         uint256 assets = LibVault._unwrap(
             LibToken._toUnderlyingDecimals(_fi, burnAfterFee),
             s.vault[_fi],
             _recipient
         );
-
-        require(assets >= _underlyingOutMin, "SupplyFacet: Slippage exceeded");
+        console.log('Unwrapped');
+        console.log('assets: %s', assets);
+        require(assets >= _underlyingOutMin, 'SupplyFacet: Slippage exceeded');
 
         emit LibToken.Withdraw(s.underlying[_fi], _fiIn, _depositFrom, fee);
     }
@@ -395,13 +305,11 @@ contract SupplyFacet is Modifiers {
         address _fi,
         address _depositFrom,
         address _recipient
-    )   public
-        isWhitelisted redeemEnabled(_fi) minWithdraw(_fiIn, _fi) extGuardOn
+    )   internal
+        extGuardOn
         returns (uint256 burnAfterFee)
     {
-        _depositFrom == msg.sender ?
-            LibToken._redeem(_fi, msg.sender, _fiIn) :
-            LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
+        LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
 
         uint256 fee = LibToken._getRedeemFee(_fi, _fiIn);
         burnAfterFee = _fiIn - fee;
@@ -415,7 +323,7 @@ contract SupplyFacet is Modifiers {
             _fi,
             burnAfterFee
         )); 
-        require(success, "SupplyFacet: Convert to derivative operation failed");
+        require(success, 'SupplyFacet: Convert to derivative operation failed');
 
         // Unwind from derivative asset to underlying hook.
         (success, ) = address(this).call(abi.encodeWithSelector(
@@ -423,8 +331,8 @@ contract SupplyFacet is Modifiers {
             _fi,
             LibVault._unwrap(s.RETURN_ASSETS, s.vault[_fi], address(this))
         ));
-        require(success, "SupplyFacet: Derivative to underlying operation failed");
-        require(s.RETURN_ASSETS > _underlyingOutMin, "SupplyFacet: Slippage exceeded");
+        require(success, 'SupplyFacet: Derivative to underlying operation failed');
+        require(s.RETURN_ASSETS > _underlyingOutMin, 'SupplyFacet: Slippage exceeded');
 
         LibToken._transfer(s.underlying[_fi], s.RETURN_ASSETS, _recipient);
 

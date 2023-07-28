@@ -119,6 +119,8 @@ struct AppStorage {
     address owner;
 
     address backupOwner;
+
+    uint8 reentrantStatus;
 }
 
 library LibAppStorage {
@@ -192,5 +194,12 @@ contract Modifiers {
         _;
         s.RETURN_ASSETS = 0;
         s.EXT_GUARD = 0;
+    }
+
+    modifier nonReentrant() {
+        require(s.reentrantStatus != 2, "Reentrant call");
+        s.reentrantStatus = 2;
+        _;
+        s.reentrantStatus = 1;
     }
 }
