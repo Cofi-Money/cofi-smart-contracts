@@ -156,7 +156,7 @@ describe("Test wrappers in app context", function() {
         console.log("Diamond deployed: ", await diamond.getAddress())
 
         // Set Diamond address in FiToken contracts.
-        await fiUSD.setDiamond(await diamond.getAddress())
+        await fiUSD.setApp(await diamond.getAddress())
         console.log("Diamond address set in fiUSD")
         // await fiETH.setDiamond(await diamond.getAddress())
         // console.log("Diamond address set in fiETH")
