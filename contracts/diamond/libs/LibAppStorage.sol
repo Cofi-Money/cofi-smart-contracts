@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { LibDiamond } from ".././core/libs/LibDiamond.sol";
+import { LibDiamond } from '.././core/libs/LibDiamond.sol';
 
 struct YieldPointsCapture {
     uint256 yield;
@@ -140,14 +140,14 @@ contract Modifiers {
     AppStorage internal s;
 
     modifier isWhitelisted() {
-        require(s.isWhitelisted[msg.sender] == 1, "Caller not whitelisted");
+        require(s.isWhitelisted[msg.sender] == 1, 'Caller not whitelisted');
         _;
     }
 
     modifier minDeposit(uint256 _amount, address _fi) {
         require(
             _amount > s.minDeposit[_fi],
-            "Insufficient deposit amount for fi token"
+            'Insufficient deposit amount for fi token'
         );
         _;
     }
@@ -155,41 +155,41 @@ contract Modifiers {
     modifier minWithdraw(uint256 _amount, address _fi) {
         require(
             _amount > s.minWithdraw[_fi],
-            "Insufficient withdraw amount for fi token"
+            'Insufficient withdraw amount for fi token'
         );
         _;
     }
 
     modifier mintEnabled(address _fi) {
-        require(s.mintEnabled[_fi] == 1, "Mint not enabled for fi token");
+        require(s.mintEnabled[_fi] == 1, 'Mint not enabled for fi token');
         _;
     }
 
     modifier redeemEnabled(address _fi) {
-        require(s.redeemEnabled[_fi] == 1, "Redeem not enabled for fi token");
+        require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for fi token');
         _;
     }
     
     modifier onlyAdmin() {
-        require(s.isAdmin[msg.sender] == 1, "Caller not Admin");
+        require(s.isAdmin[msg.sender] == 1, 'Caller not Admin');
         _;
     }
 
     modifier onlyWhitelister() {
         require(
             s.isAdmin[msg.sender] == 1 || s.isWhitelister[msg.sender] == 1,
-            "Caller not Whitelister");
+            'Caller not Whitelister');
         _;
     }
 
     /// @dev Low-level call operation available only for public/external functions.
     modifier extGuard() {
-        require(s.EXT_GUARD == 1, "Not accessible externally");
+        require(s.EXT_GUARD == 1, 'Not accessible externally');
         _;
     }
 
     modifier extGuardOn() {
-        require(s.RETURN_ASSETS == 0, "RETURN_ASSETS not reset");
+        require(s.RETURN_ASSETS == 0, 'RETURN_ASSETS not reset');
         s.EXT_GUARD = 1;
         _;
         s.RETURN_ASSETS = 0;
@@ -197,7 +197,7 @@ contract Modifiers {
     }
 
     modifier nonReentrant() {
-        require(s.reentrantStatus != 2, "Reentrant call");
+        require(s.reentrantStatus != 2, 'Reentrant call');
         s.reentrantStatus = 2;
         _;
         s.reentrantStatus = 1;

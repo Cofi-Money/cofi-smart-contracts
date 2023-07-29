@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { AppStorage, LibAppStorage } from "./LibAppStorage.sol";
-import { PercentageMath } from "./external/PercentageMath.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IFiToken } from ".././interfaces/IFiToken.sol";
+import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
+import { PercentageMath } from './external/PercentageMath.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import { IFiToken } from '.././interfaces/IFiToken.sol';
 import 'contracts/token/utils/StableMath.sol';
 
 library LibToken {
