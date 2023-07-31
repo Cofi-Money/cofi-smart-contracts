@@ -8,6 +8,7 @@ import { StableMath } from './utils/StableMath.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -200,7 +201,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         address _to,
         uint256 _value
     ) public override isValidTransfer(_value, _from, _to) returns (bool) {
-
+        console.log('Entering token');
         if (_from != msg.sender || _allowances[_from][msg.sender] != type(uint256).max) {
             _allowances[_from][msg.sender] = _allowances[_from][msg.sender].sub(_value);
         }
@@ -372,6 +373,8 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         uint256 creditAmount = _amount.mulTruncate(_creditsPerToken(_account));
         _creditBalances[_account] = _creditBalances[_account].add(creditAmount);
 
+        console.log("uint _mint amount: %s int _mint amount: ", _amount);
+        console.logInt(int256(_amount));
         yieldExcl[_account] -= int256(_amount); 
 
         // If the account is non rebasing and doesn't have a set creditsPerToken
@@ -538,7 +541,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * address's balance will be part of rebases and the account will be exposed
      * to upside and downside.
      */
-    function rebaseOptInExternal(address _account) public onlyAuthorized {
+    function rebaseOptInExternal(address _account) public onlyAuthorized nonReentrant {
         /// @dev Leave out require statements above in case admin needs to override these.
         require(_isNonRebasingAccount(_account), 'FiToken: Account has not opted out');
 
@@ -584,7 +587,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     /**
      * @dev Explicitly mark that an address is non-rebasing.
      */
-    function rebaseOptOutExternal(address _account) public onlyAuthorized {
+    function rebaseOptOutExternal(address _account) public onlyAuthorized nonReentrant {
         require(!_isNonRebasingAccount(_account), 'FiToken: Account has not opted in');
 
         // Increase non rebasing supply
@@ -646,15 +649,21 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *      - E.g., burning 1,000 from = +1,000.
      *      Decreases for incoming amount (receive 1,000) = -1,000.
      *      - E.g., minting 1,000 to = -1,000.
+     *
+     * @dev Rebases usually introduce a very minor wei discrepancy
+     *      between yield earned and token balance. Account for this
+     *      by returning either 0 or a valid uint256.
      */
     function getYieldEarned(address _account) external view returns (uint256) {
         if (yieldExcl[_account] == 0) {
             return 0;
         }
         else if (yieldExcl[_account] > 0) {
-            return balanceOf(_account) + yieldExcl[_account].abs();
+            return yieldExcl[_account].abs() < balanceOf(_account) ?
+                0 : balanceOf(_account).add(yieldExcl[_account].abs());
         } else {
-            return balanceOf(_account) - yieldExcl[_account].abs();
+            return yieldExcl[_account].abs() > balanceOf(_account) ?
+                0 : balanceOf(_account).sub(yieldExcl[_account].abs());
         }
     }
 

@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
+import 'hardhat/console.sol';
 
 library LibVault {
 
@@ -57,6 +58,7 @@ library LibVault {
     ) internal view returns (uint256 assets) {
 
         assets = IERC4626(_vault).previewRedeem(_shares);
+        console.log('LibVault assets: %s', assets);
     }
 
     /// @notice Returns the number of shares from assets for a given vault.
@@ -109,6 +111,7 @@ library LibVault {
     ) internal returns (uint256 shares) {
 
         shares = IERC4626(_vault).deposit(_amount, address(this));
+        console.log('LibVault shares: %s', shares);
         emit Wrap(_amount, _depositFrom, _vault, shares);
     }
 

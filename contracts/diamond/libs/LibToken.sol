@@ -6,6 +6,7 @@ import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import { IFiToken } from '.././interfaces/IFiToken.sol';
 import 'contracts/token/utils/StableMath.sol';
+import 'hardhat/console.sol';
 
 library LibToken {
     using PercentageMath for uint256;
@@ -70,13 +71,14 @@ library LibToken {
         address _sender,
         address _recipient
     )   internal {
-
+        console.log('Entering 2');
         SafeERC20.safeTransferFrom(
             IERC20(_asset),
             _sender,
             _recipient,
             _amount
         );
+        console.log('Transferred');
         emit Transfer(_asset, _amount, _sender, _recipient);
     }
 

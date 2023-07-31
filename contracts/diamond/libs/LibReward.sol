@@ -39,7 +39,7 @@ library LibReward {
 
         if (
             // If there is a sign-up reward.
-            s.initReward != 0 &&
+            s.initReward > 0 &&
             // If the user has not already claimed their sign-up reward.
             s.rewardStatus[msg.sender].initClaimed == 0
         ) {
@@ -47,7 +47,7 @@ library LibReward {
             s.XPC[msg.sender] += s.initReward;
             emit RewardDistributed(msg.sender, s.initReward);
             // Mark user as having claimed their sign-up reward.
-            s.rewardStatus[msg.sender].initClaimed == 1;
+            s.rewardStatus[msg.sender].initClaimed = 1;
         }
     }
 
@@ -61,13 +61,13 @@ library LibReward {
 
         if (
             // If there is a refer reward.
-            s.referReward != 0 &&
+            s.referReward > 0 &&
             // If the user has not already claimed a refer reward.
             s.rewardStatus[msg.sender].referClaimed == 0 &&
             // If the referrer is a whitelisted account.
-            s.isWhitelisted[_referral] == 1 &&
+            s.isWhitelisted[_referral] > 0 &&
             // If referrals are enabled.
-            s.rewardStatus[_referral].referDisabled != 1
+            s.rewardStatus[_referral].referDisabled < 1
         ) {
             // Apply referral to user.
             s.XPC[msg.sender] += s.referReward;
@@ -76,7 +76,7 @@ library LibReward {
             s.XPC[_referral] += s.referReward;
             emit RewardDistributed(_referral, s.referReward);
             // Mark user as having claimed their one-time referral.
-            s.rewardStatus[msg.sender].referClaimed == 1;
+            s.rewardStatus[msg.sender].referClaimed = 1;
         }
     }
 }

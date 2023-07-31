@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 interface ICOFIMoney {
 
-    function getPoints(address account, address[] memory fiAssets) external view returns (uint256 pointsTotal);
+    function getPoints(address _account, address[] memory _fi) external view returns (uint256 pointsTotal);
 }
 
 /**

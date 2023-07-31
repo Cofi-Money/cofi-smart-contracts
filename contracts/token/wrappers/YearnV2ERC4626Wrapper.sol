@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "./interfaces/IVaultWrapper.sol";
-import "./interfaces/IStakingRewardsZap.sol";
-import "./interfaces/IStakingRewards.sol";
-import { VaultAPI, IYearnRegistry } from "./interfaces/VaultAPI.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { FixedPointMathLib } from "./libs/FixedPointMathLib.sol";
-import { PercentageMath } from "./libs/PercentageMath.sol";
-import { StableMath } from "./libs/StableMath.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
+import './interfaces/IVaultWrapper.sol';
+import './interfaces/IStakingRewardsZap.sol';
+import './interfaces/IStakingRewards.sol';
+import { VaultAPI, IYearnRegistry } from './interfaces/VaultAPI.sol';
+import '@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import '@openzeppelin/contracts/access/Ownable2Step.sol';
+import { FixedPointMathLib } from './libs/FixedPointMathLib.sol';
+import { PercentageMath } from './libs/PercentageMath.sol';
+import { StableMath } from './libs/StableMath.sol';
+import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -99,6 +99,8 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
     mapping(address => uint8) public admin;
 
+    address public rewardShareReceiver;
+
     constructor(
         VaultAPI _vault,
         VaultAPI _rewardVault,
@@ -112,8 +114,8 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         uint24  _poolFee
     )
         ERC20(
-            string(abi.encodePacked("COFI Wrapped ", _vault.name())),
-            string(abi.encodePacked("cw", _vault.symbol()))
+            string(abi.encodePacked('COFI Wrapped ', _vault.name())),
+            string(abi.encodePacked('cw', _vault.symbol()))
         )
         ERC4626(
             IERC20(_underlying) // OZ contract retrieves decimals from asset
@@ -148,10 +150,9 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
     function harvest() public onlyAuthorized returns (uint256 deposited) {
         if (swapParams.enabled == 1) {
-            console.log("Attempting to harvest with swap");
             return harvestWithSwap();
         } else {
-            console.log("Attempting to harvest without swap");
+            // Otherwise skip swap operation.
             return flush();
         }
     }
@@ -177,13 +178,12 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
         /// @dev Can trigger harvest by transferring OP.
         if (rewardAssets > swapParams.amountInMin) {
+            console.log('Trigger swap');
             // Swap for want
             swapExactInputSingle(rewardAssets);
-            // Deposit to yVault
-            return flush();
-        } else {
-            return 0;
         }
+        // Deposit to yVault
+        return flush();
     }
 
     /// @param _amountIn The amount of reward asset to swap for want.
@@ -202,7 +202,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
             .percentMul(1e4 - swapParams.slippage)
             .scaleBy(decimals(), yVaultReward.decimals());
 
-        console.log("amountOutMin: %s", amountOutMin);
+        console.log('amountOutMin: %s', amountOutMin);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
             .ExactInputSingleParams({
@@ -218,7 +218,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
         amountOut = swapRouter.exactInputSingle(params);
 
-        console.log("amountOut: %s", amountOut);
+        console.log('amountOut: %s', amountOut);
     }
 
     /// @return answer with 8 decimals
@@ -229,7 +229,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
         answer = _answer.abs();
 
-        console.log("Reward asset price ($): %s", answer);
+        console.log('Reward asset price ($): %s', answer);
 
         // I.e., if the want asset is not tied to USD (e.g., wETH).
         if (address(wantPriceFeed) != address(0)) {
@@ -240,7 +240,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
             // Scales to 18 but need to return answer in 8 decimals
             answer = answer.divPrecisely(_answer.abs()).scaleBy(8, 18);
 
-            console.log("Reward asset price (want): %s", answer);
+            console.log('Reward asset price (want): %s', answer);
         }
     }
 
@@ -266,9 +266,12 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
     }
 
     /// @notice Deposits this contract's balance of want into venue.
+    /// @dev    Need to mint reward shares to receiver (in COFI's conetxt, the diamond contract).
+    ///         This ensures yield from rewards is reflected in the rebasing token rather than shares.
     function flush() public onlyAdmin returns (uint256 deposited) {
+        console.log('Flushing: %s', IERC20(asset()).balanceOf(address(this)));
         (deposited, ) = _doRewardDeposit(
-            IERC20(asset()).balanceOf(address(this))
+            IERC20(asset()).balanceOf(address(this)), rewardShareReceiver
         );
     }
 
@@ -358,7 +361,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
     {
         require(
             _account != owner(),
-            "YearnV2ERC4626Wrapper: Cannot remove admin status of Owner"
+            'YearnV2ERC4626Wrapper: Cannot remove admin status of Owner'
         );
         admin[_account] = _enabled;
         return true;
@@ -385,6 +388,15 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         return true;
     }
 
+    function setRewardShareReceiver(
+        address _account
+    )   external onlyOwner
+        returns (bool)
+    {
+        rewardShareReceiver = _account;
+        return true;
+    }
+
     /*//////////////////////////////////////////////////////////////
                         DEPOSIT/WITHDRAWAL LOGIC
     //////////////////////////////////////////////////////////////*/
@@ -398,7 +410,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         if (_assets < MIN_DEPOSIT) {
             revert MinimumDepositNotMet();
         }
-
+        console.log('deposit assets: %s', _assets);
         (_assets, shares) = _deposit(_assets, _receiver, msg.sender);
 
         emit Deposit(msg.sender, _receiver, _assets, shares);
@@ -489,6 +501,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         IERC20 _token = IERC20(asset());
 
         if (_amount == type(uint256).max) {
+            console.log('Entering _deposit if');
             _amount = Math.min(
                 _token.balanceOf(_depositor),
                 _token.allowance(_depositor, address(this))
@@ -502,6 +515,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         uint256 beforeBal = _token.balanceOf(address(this));
 
         mintedShares = stakingRewardsZap.zapIn(address(yVault), _amount);
+        console.log('mintedShares: %s', mintedShares);
 
         uint256 afterBal = _token.balanceOf(address(this));
         deposited = beforeBal - afterBal;
@@ -512,7 +526,8 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
     /// @notice Deposit want obtained from reward (e.g., USDC received from swapping OP).
     function _doRewardDeposit(
-        uint256 _amount
+        uint256 _amount,
+        address _receiver
     ) internal returns (uint256 deposited, uint256 mintedShares) {
         IERC20 _token = IERC20(asset());
 
@@ -525,6 +540,9 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
         uint256 afterBal = _token.balanceOf(address(this));
         deposited = beforeBal - afterBal;
+
+        // afterDeposit custom logic
+        _mint(_receiver, mintedShares);
     }
 
     function _withdraw(
@@ -628,9 +646,9 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
 
         uint256 localAssets = convertYearnSharesToAssets(
             // Shares held in staking contract
-            stakingRewards.balanceOf(address(this))
+            stakingRewards.balanceOf(address(this)) // Issue
         );
-        console.log("local assets: %s", localAssets);
+        console.log('local assets: %s', localAssets);
 
         return supply == 0 ? _shares : _shares.mulDivDown(localAssets, supply);
     }
@@ -808,7 +826,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
     modifier onlyAdmin() {
         require(
             msg.sender == owner() || authorized[msg.sender] > 0,
-            "YearnV2ERC4626Wrapper: Caller not admin"
+            'YearnV2ERC4626Wrapper: Caller not admin'
         );
         _;
     }
@@ -818,7 +836,7 @@ contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         if (authorizedEnabled > 0) {
             require(
                 authorized[msg.sender] == 1,
-                "YearnV2ERC4626Wrapper: Caller not authorized"
+                'YearnV2ERC4626Wrapper: Caller not authorized'
             );
         }
         _;

@@ -84,6 +84,7 @@ contract SupplyFacet is Modifiers {
     )   internal
         returns (uint256 mintAfterFee)
     {
+        console.log('Entering with underlyingIn: %s', _underlyingIn);
         // Transfer underlying to this contract first to prevent user having to 
         // approve 1+ vaults (if/when the vault used changes, upon revisiting platform).
         LibToken._transferFrom(
@@ -99,22 +100,26 @@ contract SupplyFacet is Modifiers {
             _underlyingIn
         );
 
-        uint256 assets = LibToken._toFiDecimals(
-            _fi,
-            LibVault._getAssets(
+        uint256 assetsU =             LibVault._getAssets(
                 LibVault._wrap(
                     _underlyingIn,
                     s.vault[_fi],
                     _depositFrom // Purely for Event emission. Wraps from Diamond.
                 ),
                 s.vault[_fi]
-            )
+            );
+        console.log("assetsU: %s", assetsU);
+
+        uint256 assets = LibToken._toFiDecimals(
+            _fi,
+            assetsU
         );
 
         require(assets >= _fiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_fi, assets);
         mintAfterFee = assets - fee;
+        console.log("assets: %s fee: %s mintAfterFee: %s", assets, fee, mintAfterFee);
 
         // Capture mint fee in fi tokens.
         if (fee > 0) {
