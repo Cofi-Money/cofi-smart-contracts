@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import { Modifiers } from '../libs/LibAppStorage.sol';
-import { PercentageMath } from '../libs/external/PercentageMath.sol';
 import { LibToken } from '../libs/LibToken.sol';
 import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
@@ -21,7 +20,6 @@ import 'hardhat/console.sol';
  */
 
 contract YieldFacet is Modifiers {
-    using PercentageMath for uint256;
 
     /*//////////////////////////////////////////////////////////////
                             YIELD DISTRIBUTION
@@ -35,46 +33,12 @@ contract YieldFacet is Modifiers {
     )   public
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
-        require(
-            s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
-        );
-        uint256 currentSupply = IERC20(_fi).totalSupply();
-        if (currentSupply == 0) {
-            emit LibToken.TotalSupplyUpdated(_fi, 0, 0, 1e18, 0);
-            return (0, 0, 0); 
-        }
-
-        // Preemptively harvest if necessary for vault.
-        if (s.harvestable[s.vault[_fi]] == 1) LibVault._harvest(_fi);
-
-        assets = LibToken._toFiDecimals(_fi, LibVault._totalValue(s.vault[_fi]));
-
-        if (assets > currentSupply) {
-
-            yield = assets - currentSupply;
-
-            shareYield = yield.percentMul(1e4 - s.serviceFee[_fi]);
-
-            LibToken._changeSupply(
-                _fi,
-                currentSupply + shareYield,
-                yield,
-                yield - shareYield
+        if (s.rebasePublic[_fi] == 0)
+            require(
+                s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
+                'YieldFacet: Caller not Upkeep or Admin'
             );
-
-            if (yield - shareYield > 0)
-                LibToken._mint(_fi, s.feeCollector, yield - shareYield);
-        } else {
-            emit LibToken.TotalSupplyUpdated(
-                _fi,
-                assets,
-                0,
-                LibToken._getRebasingCreditsPerToken(_fi),
-                0
-            );
-            return (assets, 0, 0);
-        }
+        return LibToken._poke(_fi);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -123,28 +87,27 @@ contract YieldFacet is Modifiers {
     )   internal
         returns (bool)
     {
-        console.log('Entering migrateMutual()');
         // Pull funds from old vault.
         uint256 assets = IERC4626(s.vault[_fi]).redeem(
             IERC20(s.vault[_fi]).balanceOf(address(this)),
             address(this),
             address(this)
         );
-        console.log('Redeemed');
+
         // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
             IERC20(IERC4626(s.vault[_fi]).asset()),
             _newVault,
             assets + s.buffer[_fi]
         );
-        console.log('Approved');
+
         // Deploy funds to new vault.
         LibVault._wrap(
             assets + s.buffer[_fi],
             _newVault,
             address(this)
         );
-        console.log('Deposited');
+
         require(
             // Vaults use same asset, therefore same decimals.
             assets <= LibVault._totalValue(_newVault),
@@ -158,11 +121,9 @@ contract YieldFacet is Modifiers {
             LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fi token.
-        s.vault[_fi] = _newVault;
+        s.vault[_fi] = _newVault; // Update vault for fi token.
 
-        rebase(_fi);
-        console.log('Synced');
+        LibToken._poke(_fi); // Sync fi token supply to assets in vault.
 
         return true;
     }
@@ -230,10 +191,9 @@ contract YieldFacet is Modifiers {
             LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fi token.
-        s.vault[_fi] = _newVault;
+        s.vault[_fi] = _newVault; // Update vault for fi token.
 
-        rebase(_fi);
+        LibToken._poke(_fi); // Sync fi token supply to assets in vault.
 
         return true;
     }
@@ -291,10 +251,9 @@ contract YieldFacet is Modifiers {
             LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fi token.
-        s.vault[_fi] = _newVault;
+        s.vault[_fi] = _newVault; // Update vault for fi token.
 
-        rebase(_fi);
+        LibToken._poke(_fi); // Sync fi token supply to assets in vault.
 
         return true;
     }
@@ -372,10 +331,9 @@ contract YieldFacet is Modifiers {
             LibVault._totalValue(_newVault)
         );
 
-        // Update vault for fi token.
-        s.vault[_fi] = _newVault;
+        s.vault[_fi] = _newVault; // Update vault for fi token.
 
-        rebase(_fi);
+        LibToken._poke(_fi); // Sync fi token supply to assets in vault
 
         return true;
     }
@@ -413,6 +371,17 @@ contract YieldFacet is Modifiers {
             'YieldFacet: Fi token must not already link with a vault'
         );
         s.vault[_fi] = _vault;
+        return true;
+    }
+
+    function setRebasePublic(
+        address _fi,
+        uint8   _enabled
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        s.rebasePublic[_fi] = _enabled;
         return true;
     }
 

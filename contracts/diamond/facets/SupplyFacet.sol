@@ -23,7 +23,7 @@ import 'hardhat/console.sol';
 contract SupplyFacet is Modifiers {
 
     /*//////////////////////////////////////////////////////////////
-                        DEPOSIT FUNCTIONS
+                            DEPOSIT FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Deposit entry point that routes according to if a derivative asset
@@ -46,6 +46,9 @@ contract SupplyFacet is Modifiers {
         nonReentrant isWhitelisted mintEnabled(_fi) minDeposit(_underlyingIn, _fi)
         returns (uint256 mintAfterFee)
     {
+        // Preemptively rebases if enabled.
+        if (s.rebasePublic[_fi] == 1) LibToken._poke(_fi);
+
         mintAfterFee = IERC4626(s.vault[_fi]).asset() == s.underlying[_fi] ?
             underlyingToFiMutual(
                 _underlyingIn,
@@ -84,7 +87,6 @@ contract SupplyFacet is Modifiers {
     )   internal
         returns (uint256 mintAfterFee)
     {
-        console.log('Entering with underlyingIn: %s', _underlyingIn);
         // Transfer underlying to this contract first to prevent user having to 
         // approve 1+ vaults (if/when the vault used changes, upon revisiting platform).
         LibToken._transferFrom(
@@ -100,26 +102,22 @@ contract SupplyFacet is Modifiers {
             _underlyingIn
         );
 
-        uint256 assetsU =             LibVault._getAssets(
+        uint256 assets = LibToken._toFiDecimals(
+            _fi,
+            LibVault._getAssets(
                 LibVault._wrap(
                     _underlyingIn,
                     s.vault[_fi],
                     _depositFrom // Purely for Event emission. Wraps from Diamond.
                 ),
                 s.vault[_fi]
-            );
-        console.log("assetsU: %s", assetsU);
-
-        uint256 assets = LibToken._toFiDecimals(
-            _fi,
-            assetsU
+            )
         );
 
         require(assets >= _fiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_fi, assets);
         mintAfterFee = assets - fee;
-        console.log("assets: %s fee: %s mintAfterFee: %s", assets, fee, mintAfterFee);
 
         // Capture mint fee in fi tokens.
         if (fee > 0) {
@@ -214,7 +212,7 @@ contract SupplyFacet is Modifiers {
     }
 
     /*//////////////////////////////////////////////////////////////
-                        WITHDRAW FUNCTIONS
+                            WITHDRAW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Withdraw entry point that routes according to if a derivative asset
@@ -250,6 +248,8 @@ contract SupplyFacet is Modifiers {
                 _depositFrom,
                 _recipient
             );
+
+        if (s.rebasePublic[_fi] == 1) LibToken._poke(_fi);
     }
 
     /// @notice Converts a fi token to its collateral underlying token (e.g., fiUSD to USDC).
@@ -271,23 +271,21 @@ contract SupplyFacet is Modifiers {
     )   internal
         returns (uint256 burnAfterFee)
     {
-        console.log('Entering fiToUnderlyingMutual()');
         LibToken._transferFrom(_fi, _fiIn, _depositFrom, s.feeCollector);
-        console.log('Transferred to feeCollector');
+
         uint256 fee = LibToken._getRedeemFee(_fi, _fiIn);
         burnAfterFee = _fiIn - fee;
-        console.log('Computed redeem fee');
+
         // Redemption fee is captured by retaining 'fee' amount.
         LibToken._burn(_fi, s.feeCollector, burnAfterFee);
-        console.log('Burned');
+
         // Redeems assets directly to recipient (does not traverse through Diamond).
         uint256 assets = LibVault._unwrap(
             LibToken._toUnderlyingDecimals(_fi, burnAfterFee),
             s.vault[_fi],
             _recipient
         );
-        console.log('Unwrapped');
-        console.log('assets: %s', assets);
+
         require(assets >= _underlyingOutMin, 'SupplyFacet: Slippage exceeded');
 
         emit LibToken.Withdraw(s.underlying[_fi], _fiIn, _depositFrom, fee);

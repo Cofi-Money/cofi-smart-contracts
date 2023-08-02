@@ -82,6 +82,11 @@ contract InitDiamond {
     //     s.serviceFee[_args.fiETH]   = 1e3;
     //     s.serviceFee[_args.fiBTC]   = 1e3;
 
+        // // Set rebases as callable by anyone.
+        // s.rebasePublic[_args.fiUSD] = 1;
+        // s.rebasePublic[_args.fiETH] = 1;
+        // s.rebasePublic[_args.fiBTC] = 1;
+
     //     // Set points rate.
     //     s.pointsRate[_args.fiUSD]   = 1e6;  // 100 points/1.0 fiUSD earned.
     //     s.pointsRate[_args.fiETH]   = 1e9;  // 100 points/0.001 fiETH earned.
@@ -98,12 +103,12 @@ contract InitDiamond {
     //     s.decimals[_args.wETH] = 18;
     //     s.decimals[_args.wBTC] = 8;
 
-    //     // 100 USDC buffer for migrations.
-    //     s.buffer[_args.fiUSD]   = 100*10**s.decimals[_args.USDC];
-    //     // 0.1 wETH buffer for migrations.
-    //     s.buffer[_args.fiETH]   = 1*10**(s.decimals[_args.wETH] - 1);
-    //     // // 0.01 wBTC buffer for migrations.
-    //     s.buffer[_args.fiBTC]   = 1*10**(s.decimals[_args.wBTC] - 2);
+        // 100 USDC buffer for migrations.
+        // s.buffer[_args.fiUSD]   = 100*10**uint256(s.decimals[_args.USDC]);
+        // 0.1 wETH buffer for migrations.
+        // s.buffer[_args.fiETH]   = 1*10**uint256((s.decimals[_args.wETH] - 1));
+        // 0.01 wBTC buffer for migrations.
+        // s.buffer[_args.fiBTC]   = 1*10**uint256((s.decimals[_args.wBTC] - 2));
 
     //     s.isAdmin[msg.sender] = 1;
     //     s.isWhitelisted[msg.sender] = 1;
@@ -190,6 +195,10 @@ contract InitDiamond {
         // s.serviceFee[_args.fiETH]   = 1e3;
         // s.serviceFee[_args.fiBTC]   = 1e3;
 
+        s.rebasePublic[_args.fiUSD] = 1;
+        // s.rebasePublic[_args.fiETH] = 1;
+        // s.rebasePublic[_args.fiBTC] = 1;
+
         // Set points rate.
         s.pointsRate[_args.fiUSD]   = 1e6;  // 100 points/1.0 fiUSD earned.
         // s.pointsRate[_args.fiETH]   = 1e9;  // 100 points/0.001 fiETH earned.
@@ -207,11 +216,11 @@ contract InitDiamond {
         // s.decimals[_args.wBTC] = 8;
 
         // 100 USDC buffer for migrations.
-        s.buffer[_args.fiUSD]   = 100*10**s.decimals[_args.USDC];
+        s.buffer[_args.fiUSD]   = 100*10**uint256(s.decimals[_args.USDC]);
         // 0.1 wETH buffer for migrations.
-        // s.buffer[_args.fiETH]   = 1*10**(s.decimals[_args.wETH] - 1);
-        // // // 0.01 wBTC buffer for migrations.
-        // s.buffer[_args.fiBTC]   = 1*10**(s.decimals[_args.wBTC] - 2);
+        // s.buffer[_args.fiETH]   = 1*10**uint256((s.decimals[_args.wETH] - 1));
+        // 0.01 wBTC buffer for migrations.
+        // s.buffer[_args.fiBTC]   = 1*10**uint256((s.decimals[_args.wBTC] - 2));
 
         s.isAdmin[msg.sender] = 1;
         s.isWhitelisted[msg.sender] = 1;

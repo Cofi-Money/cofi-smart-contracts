@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
+import { LibVault } from './LibVault.sol';
 import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import { IFiToken } from '.././interfaces/IFiToken.sol';
@@ -147,6 +148,54 @@ library LibToken {
         emit Burn(_fi, _amount, _from);
     }
 
+    /// @notice Function for updating fi token supply relative to vault earnings.
+    ///
+    /// @param  _fi The fi token to distribute yield earnings for.
+    function _poke(
+        address _fi
+    )   internal
+        returns (uint256 assets, uint256 yield, uint256 shareYield)
+    {
+        AppStorage storage s = LibAppStorage.diamondStorage();
+
+        uint256 currentSupply = IERC20(_fi).totalSupply();
+        if (currentSupply == 0) {
+            emit TotalSupplyUpdated(_fi, 0, 0, 1e18, 0);
+            return (0, 0, 0); 
+        }
+
+        // Preemptively harvest if necessary for vault.
+        if (s.harvestable[s.vault[_fi]] == 1) LibVault._harvest(_fi);
+
+        assets = _toFiDecimals(_fi, LibVault._totalValue(s.vault[_fi]));
+
+        if (assets > currentSupply) {
+
+            yield = assets - currentSupply;
+
+            shareYield = yield.percentMul(1e4 - s.serviceFee[_fi]);
+
+            _changeSupply(
+                _fi,
+                currentSupply + shareYield,
+                yield,
+                yield - shareYield
+            );
+
+            if (yield - shareYield > 0)
+                _mint(_fi, s.feeCollector, yield - shareYield);
+        } else {
+            emit TotalSupplyUpdated(
+                _fi,
+                assets,
+                0,
+                _getRebasingCreditsPerToken(_fi),
+                0
+            );
+            return (assets, 0, 0);
+        }
+    }
+
     /// @notice Updates the total supply of the fi token.
     ///
     /// @dev    Will revert if the new supply < old supply.
@@ -250,7 +299,7 @@ library LibToken {
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(18, s.decimals[s.underlying[_fi]]);
+        return _amount.scaleBy(18, uint256(s.decimals[s.underlying[_fi]]));
     }
 
     /// @notice Represents a fi token in its underlying decimals.
@@ -263,6 +312,6 @@ library LibToken {
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(s.decimals[s.underlying[_fi]], 18);
+        return _amount.scaleBy(uint256(s.decimals[s.underlying[_fi]]), 18);
     }
 }

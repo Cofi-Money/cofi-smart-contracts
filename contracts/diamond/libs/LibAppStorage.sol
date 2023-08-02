@@ -66,7 +66,9 @@ struct AppStorage {
     mapping(address => uint8)   redeemEnabled;
 
     // Decimals of the underlying asset (e.g., USDC => 6).
-    mapping(address => uint256) decimals;
+    mapping(address => uint8)   decimals;
+
+    mapping(address => uint8)   rebasePublic;
 
     /*//////////////////////////////////////////////////////////////
                         ADDITIONAL VAULT PARAMS
