@@ -7,8 +7,8 @@ import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
 import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
 import { PercentageMath } from "./libs/PercentageMath.sol";
 import { StableMath } from "./libs/StableMath.sol";
-import { ICERC20 } from "./interfaces/ICERC20.sol";
 import { LibCompound } from "./libs/LibCompound.sol";
+import { ICERC20 } from "./interfaces/ICERC20.sol";
 import { IComptroller } from "./interfaces/IComptroller.sol";
 import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
 import { DexSwap } from "./utils/swapUtils.sol";
@@ -31,7 +31,7 @@ import "hardhat/console.sol";
             in the respective protocol.
  */
 
-contract CompoundV2ERC4626Wrapper is ERC4626, Ownable2Step, ReentrancyGuard {
+contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /*//////////////////////////////////////////////////////////////
                             LIBRARIES USAGE

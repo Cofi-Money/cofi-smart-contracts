@@ -29,7 +29,7 @@ import 'hardhat/console.sol';
             in the respective protocol.
  */
 
-contract YearnV2ERC4626Wrapper is ERC4626, IVaultWrapper, Ownable2Step, ReentrancyGuard {
+contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, ReentrancyGuard {
 
     /*//////////////////////////////////////////////////////////////
                             LIBRARIES USAGE

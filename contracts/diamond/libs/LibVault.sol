@@ -3,7 +3,6 @@ pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
-import 'hardhat/console.sol';
 
 library LibVault {
 
@@ -57,8 +56,7 @@ library LibVault {
         address _vault
     ) internal view returns (uint256 assets) {
 
-        assets = IERC4626(_vault).previewRedeem(_shares);
-        console.log('LibVault assets: %s', assets);
+        return IERC4626(_vault).previewRedeem(_shares);
     }
 
     /// @notice Returns the number of shares from assets for a given vault.
@@ -70,7 +68,7 @@ library LibVault {
         address _vault
     ) internal view returns (uint256 shares) {
 
-        shares = IERC4626(_vault).previewDeposit(_assets);
+        return IERC4626(_vault).previewDeposit(_assets);
     }
 
     /// @notice Gets total value of Diamond's holding of shares from the relevant vault.
@@ -78,21 +76,9 @@ library LibVault {
     /// @param _vault The vault to enquire for.
     function _totalValue(
         address _vault
-    ) internal returns (uint256 assets) {
-        AppStorage storage s = LibAppStorage.diamondStorage();
+    ) internal view returns (uint256 assets) {
 
-        // I.e., if vault is using a derivative.
-        if (s.derivParams[_vault].toUnderlying != 0) {
-            // Sets RETURN_ASSETS to equivalent number of underlying.
-            (bool success, ) = address(this).call(abi.encodeWithSelector(
-                s.derivParams[_vault].convertToUnderlying,
-                IERC4626(_vault).maxWithdraw(address(this))
-            ));
-            require(success, 'LibVault: Convert to underlying operation failed');
-            assets = s.RETURN_ASSETS;
-            s.RETURN_ASSETS = 0;
-        }
-        else assets = IERC4626(_vault).maxWithdraw(address(this));
+        return IERC4626(_vault).maxWithdraw(address(this));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -111,7 +97,6 @@ library LibVault {
     ) internal returns (uint256 shares) {
 
         shares = IERC4626(_vault).deposit(_amount, address(this));
-        console.log('LibVault shares: %s', shares);
         emit Wrap(_amount, _depositFrom, _vault, shares);
     }
 
@@ -127,7 +112,7 @@ library LibVault {
     ) internal returns (uint256 assets) {
 
         // Retrieve the corresponding number of shares for the amount of fi tokens provided.
-        uint256 shares = IERC4626(_vault).previewDeposit(_amount);    // Need to convert from USDC to USDC-LP
+        uint256 shares = IERC4626(_vault).previewDeposit(_amount);
 
         assets = IERC4626(_vault).redeem(shares, _recipient, address(this));
         emit Unwrap(_amount, shares, _vault, assets, _recipient);

@@ -14,17 +14,6 @@ struct RewardStatus {
     uint8   referDisabled;
 }
 
-/// @dev    'spender' address must be provided in LibVault.
-struct DerivParams {
-    address spender;                // Spender for the 'toDeriv()' method.
-    bytes4  toDeriv;                // Method for winding to the derivative asset.
-    bytes4  toUnderlying;           // Method for unwinding to the underlying asset.
-    bytes4  convertToDeriv;         // Method for retrieving the equiv. number of derivative.
-    bytes4  convertToUnderlying;    // Method for retrieving the equiv. number of underlying.
-    address[] add;                  // Additional addresses that may be required.
-    uint256[] num;                  // Additional integers that may be required.
-}
-
 struct AppStorage {
 
     /*//////////////////////////////////////////////////////////////
@@ -34,55 +23,45 @@ struct AppStorage {
     // E.g., fiUSD => (20*10**18) - 1. Applies to underlying token (e.g., USDC).
     mapping(address => uint256) minDeposit;
 
-    // E.g., COFI => 20*10**18. Applies to underlyingAsset (e.g., DAI).
+    // E.g., fiUSD => 20*10**18. Applies to underlyingAsset (e.g., DAI).
     mapping(address => uint256) minWithdraw;
 
-    // E.g., COFI => 10bps. Applies to fi tokens only.
+    // E.g., fiUSD => 10bps. Applies to fi tokens only.
     mapping(address => uint256) mintFee;
 
-    // E.g., COFI => 10bps. Applies to fi tokens only.
+    // E.g., fiUSD => 10bps. Applies to fi tokens only.
     mapping(address => uint256) redeemFee;
 
-    // E.g., COFI => 1,000bps. Applies to fi tokens only.
+    // E.g., fiUSD => 1,000bps. Applies to fi tokens only.
     mapping(address => uint256) serviceFee;
 
-    // E.g., COFI => 1,000,000bps (100x / 1*10**18 yield earned).
+    // E.g., fiUSD => 1,000,000bps (100x / 1*10**18 yield earned).
     mapping(address => uint256) pointsRate;
 
-    // E.g., COFI => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
+    // E.g., fiUSD => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
     mapping(address => uint256) buffer;
 
-    // E.g., COFI => yvDAI; fiETH => maETH; fiBTC => maBTC.
+    // E.g., fiUSD => yvDAI; fiETH => maETH; fiBTC => maBTC.
     mapping(address => address) vault;
 
-    // E.g., COFI => USDC; ETHFI => wETH; BTCFI => wBTC.
+    // E.g., fiUSD => USDC; ETHFI => wETH; BTCFI => wBTC.
     // Need to specify as vault may use different underlying (e.g., USDC-LP).
     mapping(address => address) underlying;
 
-    // E.g., COFI => 1.
+    // E.g., fiUSD => 1.
     mapping(address => uint8)   mintEnabled;
 
-    // E.g., COFI => 1.
+    // E.g., fiUSD => 1.
     mapping(address => uint8)   redeemEnabled;
 
     // Decimals of the underlying asset (e.g., USDC => 6).
     mapping(address => uint8)   decimals;
 
+    // E.g., fiUSD => 0.
     mapping(address => uint8)   rebasePublic;
 
-    /*//////////////////////////////////////////////////////////////
-                        ADDITIONAL VAULT PARAMS
-    //////////////////////////////////////////////////////////////*/
-
-    // E.g., wmooHopUSDC => DerivParams.
-    mapping(address => DerivParams) derivParams;
-
     // If rebase operation should harvest vault beforehand.
-    mapping(address => uint8) harvestable;
-
-    uint8 EXT_GUARD;
-
-    uint256 RETURN_ASSETS;
+    mapping(address => uint8)   harvestable;
 
     /*//////////////////////////////////////////////////////////////
                             REWARDS PARAMS
@@ -97,7 +76,7 @@ struct AppStorage {
     mapping(address => RewardStatus) rewardStatus;
 
     // Yield points capture (determined via yield earnings from fi tokens).
-    // E.g., 0x1234... => COFI => YieldPointsCapture.
+    // E.g., 0x1234... => fiUSD => YieldPointsCapture.
     mapping(address => mapping(address => YieldPointsCapture)) YPC;
 
     // External points capture (to yield earnings). Maps to account only (not fi tokens).
@@ -182,20 +161,6 @@ contract Modifiers {
             s.isAdmin[msg.sender] == 1 || s.isWhitelister[msg.sender] == 1,
             'Caller not Whitelister');
         _;
-    }
-
-    /// @dev Low-level call operation available only for public/external functions.
-    modifier extGuard() {
-        require(s.EXT_GUARD == 1, 'Not accessible externally');
-        _;
-    }
-
-    modifier extGuardOn() {
-        require(s.RETURN_ASSETS == 0, 'RETURN_ASSETS not reset');
-        s.EXT_GUARD = 1;
-        _;
-        s.RETURN_ASSETS = 0;
-        s.EXT_GUARD = 0;
     }
 
     modifier nonReentrant() {
