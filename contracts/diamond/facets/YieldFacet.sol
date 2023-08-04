@@ -30,7 +30,7 @@ contract YieldFacet is Modifiers {
     /// @param  _fi The fi token to distribute yield earnings for.
     function rebase(
         address _fi
-    )   public
+    )   external
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
         if (s.rebasePublic[_fi] == 0)
@@ -56,7 +56,7 @@ contract YieldFacet is Modifiers {
     function migrate(
         address _fi,
         address _newVault
-    )   internal
+    )   external
         returns (bool)
     {
         // Pull funds from old vault.

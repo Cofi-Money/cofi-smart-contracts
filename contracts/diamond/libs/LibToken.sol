@@ -72,14 +72,13 @@ library LibToken {
         address _sender,
         address _recipient
     )   internal {
-        console.log('Entering 2');
+
         SafeERC20.safeTransferFrom(
             IERC20(_asset),
             _sender,
             _recipient,
             _amount
         );
-        console.log('Transferred');
         emit Transfer(_asset, _amount, _sender, _recipient);
     }
 
@@ -114,6 +113,7 @@ library LibToken {
     ) internal {
 
         IFiToken(_fi).mint(_to, _amount);
+        console.log('LibToken minted');
         emit Mint(_fi, _amount, _to);
     }
 
@@ -163,12 +163,12 @@ library LibToken {
             emit TotalSupplyUpdated(_fi, 0, 0, 1e18, 0);
             return (0, 0, 0); 
         }
-
+        console.log('Harvesting');
         // Preemptively harvest if necessary for vault.
         if (s.harvestable[s.vault[_fi]] == 1) LibVault._harvest(_fi);
-
+        console.log('Harvested');
         assets = _toFiDecimals(_fi, LibVault._totalValue(s.vault[_fi]));
-
+        console.log('assets: %s', assets);
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
@@ -181,7 +181,7 @@ library LibToken {
                 yield,
                 yield - shareYield
             );
-
+            console.log('Rebased');
             if (yield - shareYield > 0)
                 _mint(_fi, s.feeCollector, yield - shareYield);
         } else {

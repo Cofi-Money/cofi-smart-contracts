@@ -338,7 +338,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      */
     function mint(address _account, uint256 _amount) external onlyApp {
         // Ignore 'paused' check, as this is covered by 'mintEnabled' in Diamond.
-        require(frozen[_account] <  1, 'FiToken: Recipient account is frozen');
+        require(frozen[_account] == 0, 'FiToken: Recipient account is frozen');
         _mint(_account, _amount);
     }
 
@@ -347,7 +347,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      */
     function mintOptIn(address _account, uint256 _amount) external onlyApp {
         // Ignore 'paused' check, as this is covered by 'mintEnabled' in Diamond.
-        require(frozen[_account] < 1, 'FiToken: Recipient account is frozen');
+        require(frozen[_account] == 0, 'FiToken: Recipient account is frozen');
         _mint(_account, _amount);
 
         if (_isNonRebasingAccount(_account)) {

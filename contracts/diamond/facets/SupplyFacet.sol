@@ -62,7 +62,7 @@ contract SupplyFacet is Modifiers {
             s.vault[_fi],
             _underlyingIn
         );
-
+        console.log('Approved');
         uint256 assets = LibToken._toFiDecimals(
             _fi,
             LibVault._getAssets(
@@ -74,7 +74,7 @@ contract SupplyFacet is Modifiers {
                 s.vault[_fi]
             )
         );
-
+        console.log('Wrapped');
         require(assets >= _fiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_fi, assets);
@@ -82,16 +82,18 @@ contract SupplyFacet is Modifiers {
 
         // Capture mint fee in fi tokens.
         if (fee > 0) {
+            console.log('Capturing mint fee');
             LibToken._mint(_fi, s.feeCollector, fee);
         }
+        console.log('Minting');
         LibToken._mintOptIn(_fi, _recipient, mintAfterFee);
-
+        console.log('Minted');
         // Distribute rewards.
         LibReward._initReward();
         if (_referral != address(0)) {
             LibReward._referReward(_referral);
         }
-
+        console.log('Deposited');
         emit LibToken.Deposit(s.underlying[_fi], _underlyingIn, _depositFrom, fee);
     }
 

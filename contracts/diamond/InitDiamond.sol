@@ -53,8 +53,8 @@ contract InitDiamond {
         s.vault[_args.fiETH]    = _args.vETH;
         s.vault[_args.fiBTC]    = _args.vBTC;
 
-        s.harvestable[s.vault[_args.fiUSD]] = 1;
-        s.harvestable[s.vault[_args.fiETH]] = 1;
+        // s.harvestable[s.vault[_args.fiUSD]] = 1;
+        // s.harvestable[s.vault[_args.fiETH]] = 1;
         s.harvestable[s.vault[_args.fiBTC]] = 1;
 
         // Set mint enabled.
