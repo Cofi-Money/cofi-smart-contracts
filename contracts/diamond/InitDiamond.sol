@@ -53,8 +53,9 @@ contract InitDiamond {
         s.vault[_args.fiETH]    = _args.vETH;
         s.vault[_args.fiBTC]    = _args.vBTC;
 
-        // s.harvestable[s.vault[_args.fiUSD]] = 1;
-        // s.harvestable[s.vault[_args.fiETH]] = 1;
+        // Only CompoundV2 wrapper is harvestable upon launch.
+        s.harvestable[s.vault[_args.fiUSD]] = 1;
+        s.harvestable[s.vault[_args.fiETH]] = 1;
         s.harvestable[s.vault[_args.fiBTC]] = 1;
 
         // Set mint enabled.
@@ -85,7 +86,7 @@ contract InitDiamond {
         // Set rebases as callable by anyone.
         // s.rebasePublic[_args.fiUSD] = 1;
         // s.rebasePublic[_args.fiETH] = 1;
-        s.rebasePublic[_args.fiBTC] = 1;
+        // s.rebasePublic[_args.fiBTC] = 1;
 
         // Set points rate.
         s.pointsRate[_args.fiUSD]   = 1e6;  // 100 points/1.0 fiUSD earned.
