@@ -146,6 +146,17 @@ contract YieldFacet is Modifiers {
         return true;
     }
 
+    function setHarvestable(
+        address _vault,
+        uint8   _enabled
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        s.harvestable[_vault] = _enabled;
+        return true;
+    }
+
     /// @notice Opts the diamond into receiving yield on holding of cofi tokens (which fees
     ///         are captured in). Note that the feeCollector is a separate contract.
     ///         By default, elect to not activate (thereby passing on yield to holders).
@@ -180,5 +191,23 @@ contract YieldFacet is Modifiers {
         returns (uint256)
     {
         return s.buffer[_cofi];
+    }
+
+    function getRebasePublic(
+        address _cofi
+    )   external
+        view
+        returns (uint8)
+    {
+        return s.rebasePublic[_cofi];
+    }
+
+    function getHarvestable(
+        address _vault
+    )   external
+        view
+        returns (uint8)
+    {
+        return s.harvestable[_vault];
     }
 }

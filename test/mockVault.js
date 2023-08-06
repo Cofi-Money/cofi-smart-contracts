@@ -30,20 +30,19 @@ describe("Test mock vaults", function() {
 
         console.log(await helpers.time.latestBlock())
 
-        const FIUSD = await ethers.getContractFactory("FiToken")
-        const fiUSD = await FIUSD.deploy(
+        const COFITOKEN = await ethers.getContractFactory("COFIRebasingToken")
+        const coUSD = await COFITOKEN.deploy(
             "COFI Dollar",
-            "fiUSD"
+            "coUSD"
         )
-        await fiUSD.waitForDeployment()
-        console.log("fiUSD deployed: " + await fiUSD.getAddress())
-        const FIETH = await ethers.getContractFactory("FiToken")
-        const fiETH = await FIETH.deploy(
+        await coUSD.waitForDeployment()
+        console.log("coUSD deployed: " + await coUSD.getAddress())
+        const coETH = await COFITOKEN.deploy(
             "COFI Ethereum",
-            "fiETH"
+            "coETH"
         )
-        await fiETH.waitForDeployment()
-        console.log("fiETH deployed: " + await fiETH.getAddress())
+        await coETH.waitForDeployment()
+        console.log("coETH deployed: " + await coETH.getAddress())
 
         // Deploy DiamondCutFacet
         const DiamondCutFacet = await ethers.getContractFactory("DiamondCutFacet")
@@ -60,11 +59,11 @@ describe("Test mock vaults", function() {
         await diamond.waitForDeployment()
         console.log("Diamond deployed: ", await diamond.getAddress())
 
-        // Set Diamond address in FiToken contracts.
-        await fiUSD.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiUSD")
-        await fiETH.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiETH")
+        // Set Diamond address in COFIRebasingToken contracts.
+        await coUSD.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coUSD")
+        await coETH.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coETH")
 
         // Deploy mock vaults
         const Vault = await ethers.getContractFactory("Vault")
@@ -108,9 +107,9 @@ describe("Test mock vaults", function() {
         }
        
         const initArgs = [{
-            fiUSD:  await fiUSD.getAddress(),
-            fiETH:  await fiETH.getAddress(),
-            fiBTC:  NULL_Addr,
+            coUSD:  await coUSD.getAddress(),
+            coETH:  await coETH.getAddress(),
+            coBTC:  NULL_Addr,
             vUSDC:  await vUSDC.getAddress(),
             vETH:   await vETH.getAddress(),
             vBTC:   NULL_Addr,
@@ -155,106 +154,106 @@ describe("Test mock vaults", function() {
         const weth = (await ethers.getContractAt(wETH_ABI, wETH_Addr)).connect(signer)
 
         await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "500000000", // underlying [6 decimaos]
             "498750000000000000000", // 0.25% slippage fi [18 decimals]
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t0 Vault USDC bal: ", await usdc.balanceOf(await vUSDC.getAddress()))
         console.log("t0 Diamond vUSDC bal: ", await vUSDC.balanceOf(await diamond.getAddress()))
 
         await weth.approve(await diamond.getAddress(), "1000000000000000000") // 1 wETH
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "500000000000000000", // underlying [18 decimaos]
             "498750000000000000", // 0.25% slippage fi [18 decimals]
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t0 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
         console.log("t0 Diamond vETH bal: ", await vETH.balanceOf(await diamond.getAddress()))
 
-        /* Simulate fiUSD yield distribution */
+        /* Simulate coUSD yield distribution */
         await whaleUsdc.transfer((await vUSDC.getAddress()), "10000000") // 10 USDC
         console.log('Transferred USDC to vUSDC')
-        await cofiMoney.rebase(await fiUSD.getAddress())
-        console.log("t1 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        await cofiMoney.rebase(await coUSD.getAddress())
+        console.log("t1 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t1 Vault USDC bal: ", await usdc.balanceOf(await vUSDC.getAddress()))
         // Will be the same as t0
         console.log("t1 Diamond vUSDC bal: ", await vUSDC.balanceOf(await diamond.getAddress()))
-        console.log("t1 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))        
+        console.log("t1 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))        
 
-        /* Simulate fiETH yield distribution */
+        /* Simulate coETH yield distribution */
         await whaleWeth.transfer((await vETH.getAddress()), "10000000000000000") // 0.01 wETH
-        await cofiMoney.rebase(await fiETH.getAddress())
-        console.log("t1 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        await cofiMoney.rebase(await coETH.getAddress())
+        console.log("t1 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t1 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
         // Will be the same as t0
         console.log("t1 Diamond vETH bal: ", await vETH.balanceOf(await diamond.getAddress()))
-        console.log("t1 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+        console.log("t1 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
 
-        return { owner, cofiMoney, fiUSD, fiETH, usdc, weth, vUSDC, vETH, whaleUsdc, whaleWeth,
+        return { owner, cofiMoney, coUSD, coETH, usdc, weth, vUSDC, vETH, whaleUsdc, whaleWeth,
             feeCollector, Vault }
     }
 
     // it("Should deposit again, rebase, and redeem", async function() {
 
-    //     const { owner, cofiMoney, fiUSD, usdc, vUSDC, whaleUsdc, feeCollector } = await loadFixture(deploy)
+    //     const { owner, cofiMoney, coUSD, usdc, vUSDC, whaleUsdc, feeCollector } = await loadFixture(deploy)
 
-    //     /* Second fiUSD deposit */
-    //     await cofiMoney.underlyingToFi(
+    //     /* Second coUSD deposit */
+    //     await cofiMoney.underlyingToCofi(
     //         "500000000", // underlying [6 decimaos]
     //         "498750000000000000000", // 0.25% slippage fi [18 decimals]
-    //         await fiUSD.getAddress(),
+    //         await coUSD.getAddress(),
     //         await owner.getAddress(),
     //         await owner.getAddress(),
     //         NULL_Addr
     //     )
-    //     console.log("t2 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-    //     console.log("t2 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t2 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
     //     console.log("t2 Vault USDC bal: ", await usdc.balanceOf(await vUSDC.getAddress()))
-    //     console.log("t2 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))
+    //     console.log("t2 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))
 
-    //     /* Second fiUSD yield distribution */
+    //     /* Second coUSD yield distribution */
     //     await whaleUsdc.transfer((await vUSDC.getAddress()), "10000000") // 10 USDC
-    //     await cofiMoney.rebase(await fiUSD.getAddress())
-    //     console.log("t3 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-    //     console.log("t3 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+    //     await cofiMoney.rebase(await coUSD.getAddress())
+    //     console.log("t3 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t3 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
     //     console.log("t3 Vault USDC bal: ", await usdc.balanceOf(await vUSDC.getAddress()))
     //     // Will be the same as t0
     //     console.log("t3 Diamond vUSDC bal: ", await vUSDC.balanceOf(await cofiMoney.getAddress()))
-    //     console.log("t3 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))
+    //     console.log("t3 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))
         
-    //     /* Redeem fiUSD balance */
-    //     await fiUSD.approve(await cofiMoney.getAddress(), await fiUSD.balanceOf(await owner.getAddress()))
-    //     await cofiMoney.fiToUnderlying(
-    //         await fiUSD.balanceOf(await owner.getAddress()),
+    //     /* Redeem coUSD balance */
+    //     await coUSD.approve(await cofiMoney.getAddress(), await coUSD.balanceOf(await owner.getAddress()))
+    //     await cofiMoney.cofiToUnderlying(
+    //         await coUSD.balanceOf(await owner.getAddress()),
     //         "0",
-    //         await fiUSD.getAddress(),
+    //         await coUSD.getAddress(),
     //         await owner.getAddress(),
     //         await owner.getAddress(),
     //     )
     //     console.log("t4 User USDC bal: ", await usdc.balanceOf(await owner.getAddress()))
-    //     console.log("t4 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-    //     console.log("t4 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t4 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t4 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
     //     console.log("t4 Vault USDC bal: ", await usdc.balanceOf(await vUSDC.getAddress()))
     //     console.log("t4 Diamond vUSDC bal: ", await vUSDC.balanceOf(await cofiMoney.getAddress()))
-    //     console.log("t4 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))
+    //     console.log("t4 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))
     // })
 
     // it("Should migrate to identical vault", async function() {
 
-    //     const { owner, cofiMoney, fiETH, weth, vETH, whaleWeth, feeCollector, Vault } = await loadFixture(deploy)
+    //     const { owner, cofiMoney, coETH, weth, vETH, whaleWeth, feeCollector, Vault } = await loadFixture(deploy)
 
     //     // Transfer 2x wETH buffer to Diamond
     //     await whaleWeth.transfer(await cofiMoney.getAddress(), "200000000000000000") // 0.2 wETH
@@ -265,59 +264,59 @@ describe("Test mock vaults", function() {
     //     console.log("_vETH deployed: ", await _vETH.getAddress())
 
     //     /* Migrate */
-    //     await cofiMoney.migrate(await fiETH.getAddress(), await _vETH.getAddress())
+    //     await cofiMoney.migrate(await coETH.getAddress(), await _vETH.getAddress())
 
-    //     console.log("t2 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-    //     console.log("t2 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t2 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+    //     console.log("t2 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
     //     // Should be depleted
     //     console.log("t2 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
     //     // Should be depleted
     //     console.log("t2 Diamond vETH bal: ", await vETH.balanceOf(await cofiMoney.getAddress()))
     //     // Should have 0.1 wETH remaining
     //     console.log("t2 Diamond wETH bal: ", await weth.balanceOf(await cofiMoney.getAddress()))
-    //     console.log("t2 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+    //     console.log("t2 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
     //     console.log("t2 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
     //     console.log("t2 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
 
     //     /* Deposit again */
-    //     await cofiMoney.underlyingToFi(
+    //     await cofiMoney.underlyingToCofi(
     //         "100000000000000000", // 0.1 wETH underlying [18 decimaos]
     //         "99750000000000000", // 0.25% slippage fi [18 decimals]
-    //         await fiETH.getAddress(),
+    //         await coETH.getAddress(),
     //         await owner.getAddress(),
     //         await owner.getAddress(),
     //         NULL_Addr
     //     )
-    //     console.log("t3 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-    //     console.log("t3 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t3 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+    //     console.log("t3 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
     //     // Should be depleted
     //     console.log("t3 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
     //     // Should be depleted
     //     console.log("t3 Diamond vETH bal: ", await vETH.balanceOf(await cofiMoney.getAddress()))
-    //     console.log("t3 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+    //     console.log("t3 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
     //     console.log("t3 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
     //     console.log("t3 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
 
-    //     /* Redeem fiETH balance */
-    //     await fiETH.approve(await cofiMoney.getAddress(), await fiETH.balanceOf(await owner.getAddress()))
-    //     await cofiMoney.fiToUnderlying(
-    //         await fiETH.balanceOf(await owner.getAddress()),
+    //     /* Redeem coETH balance */
+    //     await coETH.approve(await cofiMoney.getAddress(), await coETH.balanceOf(await owner.getAddress()))
+    //     await cofiMoney.cofiToUnderlying(
+    //         await coETH.balanceOf(await owner.getAddress()),
     //         "0",
-    //         await fiETH.getAddress(),
+    //         await coETH.getAddress(),
     //         await owner.getAddress(),
     //         await owner.getAddress(),
     //     )
     //     console.log("t4 User wETH bal: ", await weth.balanceOf(await owner.getAddress()))
-    //     console.log("t4 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-    //     console.log("t4 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t4 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+    //     console.log("t4 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
     //     console.log("t4 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
     //     console.log("t4 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
-    //     console.log("t4 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+    //     console.log("t4 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
     // })
 
     it("Should migrate to CompoundV2ERC4626 vault", async function() {
 
-        const { owner, cofiMoney, fiETH, weth, vETH, whaleWeth, feeCollector } = await loadFixture(deploy)
+        const { owner, cofiMoney, coETH, weth, vETH, whaleWeth, feeCollector } = await loadFixture(deploy)
 
         // Transfer 2x wETH buffer to Diamond
         await whaleWeth.transfer(await cofiMoney.getAddress(), "200000000000000000") // 0.2 wETH
@@ -344,53 +343,53 @@ describe("Test mock vaults", function() {
 
         /* Migrate */
         // Rebase is not set to call harvest op
-        await cofiMoney.migrate(await fiETH.getAddress(), await _vETH.getAddress())
+        await cofiMoney.migrate(await coETH.getAddress(), await _vETH.getAddress())
 
-        console.log("t2 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t2 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         // Should be depleted
         console.log("t2 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
         // Should be depleted
         console.log("t2 Diamond vETH bal: ", await vETH.balanceOf(await cofiMoney.getAddress()))
         // Should have 0.1 wETH remaining
         console.log("t2 Diamond wETH bal: ", await weth.balanceOf(await cofiMoney.getAddress()))
-        console.log("t2 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+        console.log("t2 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
         console.log("t2 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
         console.log("t2 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
 
         /* Deposit again */
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "100000000000000000", // 0.1 wETH underlying [18 decimaos]
             "99750000000000000", // 0.25% slippage fi [18 decimals]
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t3 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t3 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t3 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t3 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         // Should be depleted
         console.log("t3 Vault wETH bal: ", await weth.balanceOf(await vETH.getAddress()))
         // Should be depleted
         console.log("t3 Diamond vETH bal: ", await vETH.balanceOf(await cofiMoney.getAddress()))
-        console.log("t3 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+        console.log("t3 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
         console.log("t3 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
         console.log("t3 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
 
-        /* Redeem fiETH balance */
-        await fiETH.approve(await cofiMoney.getAddress(), await fiETH.balanceOf(await owner.getAddress()))
-        await cofiMoney.fiToUnderlying(
-            await fiETH.balanceOf(await owner.getAddress()),
+        /* Redeem coETH balance */
+        await coETH.approve(await cofiMoney.getAddress(), await coETH.balanceOf(await owner.getAddress()))
+        await cofiMoney.cofiToUnderlying(
+            await coETH.balanceOf(await owner.getAddress()),
             "0",
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
         )
         console.log("t4 User wETH bal: ", await weth.balanceOf(await owner.getAddress()))
-        console.log("t4 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t4 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t4 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t4 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t4 _Vault wETH bal: ", await weth.balanceOf(await _vETH.getAddress()))
         console.log("t4 Diamond _vETH bal: ", await _vETH.balanceOf(await cofiMoney.getAddress()))
-        console.log("t4 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+        console.log("t4 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
     })
 })

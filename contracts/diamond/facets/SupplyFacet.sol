@@ -105,7 +105,7 @@ contract SupplyFacet is Modifiers {
     /// @param  _cofi               The cofi token to redeem (e.g., coUSD).
     /// @param  _depositFrom        The account to deposit cofi tokens from.
     /// @param  _recipient          The recipient of the underlying tokens.
-    function fiToUnderlying(
+    function cofiToUnderlying(
         uint256 _cofiIn,
         uint256 _underlyingOutMin,
         address _cofi,

@@ -8,9 +8,6 @@ const { INFURA_API_KEY, ALCHEMY_API_KEY, PRIV_KEY, OPT_SCAN_API_KEY } = process.
 module.exports = {
   solidity: {
     version: "0.8.20",
-    mocha: {
-      timeout: 100000000,
-    },
     settings: {
       optimizer: {
         enabled: true,
@@ -24,7 +21,7 @@ module.exports = {
     // name: "COFIToken",
     include: ["Facet"],
     // include: ["Token"],
-    exclude: ["Token"],
+    // exclude: ["Token"],
     strict: false
   },
   networks: {
@@ -33,14 +30,12 @@ module.exports = {
       accounts: [`${PRIV_KEY}`]
     },
     hardhat: {
-      timeout: 100000000,
       forking: {
         url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
-        timeout: 100000000
       },
-      // forking: {
-      //   url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-      // }
+    //   // forking: {
+    //   //   url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+    //   // }
     }
   },
   etherscan: {

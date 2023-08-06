@@ -59,7 +59,7 @@ contract PointToken is ERC20 {
     }
 
     modifier isAdmin() {
-        require(admin[msg.sender] > 0, 'PointToken: Caller not admin');
+        require(admin[msg.sender] == 1, 'PointToken: Caller not admin');
         _;
     }
 }

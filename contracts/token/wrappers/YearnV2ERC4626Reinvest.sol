@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import './interfaces/IVaultWrapper.sol';
-import './interfaces/IStakingRewardsZap.sol';
-import './interfaces/IStakingRewards.sol';
-import { VaultAPI, IYearnRegistry } from './interfaces/VaultAPI.sol';
+import './interfaces/yearn/IVaultWrapper.sol';
+import './interfaces/yearn/IStakingRewardsZap.sol';
+import './interfaces/yearn/IStakingRewards.sol';
+import { VaultAPI, IYearnRegistry } from './interfaces/yearn/VaultAPI.sol';
 import '@openzeppelin/contracts/token/ERC20/extensions/ERC4626.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';

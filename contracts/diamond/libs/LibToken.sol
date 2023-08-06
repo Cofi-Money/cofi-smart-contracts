@@ -200,7 +200,6 @@ library LibToken {
         if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(_cofi);
 
         assets = _toCofiDecimals(_cofi, LibVault._totalValue(s.vault[_cofi]));
-
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
@@ -251,15 +250,6 @@ library LibToken {
             _fee
         );
     }
-
-    // function _getToLock(
-    //     address _cofi,
-    //     uint256 _coOut
-    // ) internal view returns (uint256 toLock) {
-    //     AppStorage storage s = LibAppStorage.diamondStorage();
-
-    //     toLock = _coOut.percentMul(s.CR[_cofi]);
-    // }
 
     /// @notice Returns the rCPT for a given cofi token.
     ///

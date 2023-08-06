@@ -8,7 +8,6 @@ import { StableMath } from './utils/StableMath.sol';
 import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
-import 'hardhat/console.sol';
 
 /**
 
@@ -147,6 +146,31 @@ contract COFIRebasingToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     }
 
     /**
+     * @notice  Locks an amount of tokens at the holder's address.
+     */
+    function lock(
+        address _account,
+        uint256 _amount
+    ) external onlyApp returns (bool) {
+        
+        _amount >= freeBalanceOf(_account) ?
+            locked[_account] = balanceOf(_account) :
+            locked[_account] = locked[_account].add(_amount);
+        return true;
+    }
+
+    function unlock(
+        address _account,
+        uint256 _amount
+    ) external onlyApp returns (bool) {
+
+        locked[_account] = _amount >= locked[_account] ?
+            0 :
+            locked[_account].sub(_amount);
+        return true;
+    }
+
+    /**
      * @notice Returns the number of tokens from an amount of credits.
      * @param _amount The amount of credits to convert to tokens.
      */
@@ -221,7 +245,6 @@ contract COFIRebasingToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         address _to,
         uint256 _value
     ) public override isValidTransfer(_value, _from, _to) returns (bool) {
-        console.log('Entering token');
         if (_from != msg.sender || _allowances[_from][msg.sender] != type(uint256).max) {
             _allowances[_from][msg.sender] = _allowances[_from][msg.sender].sub(_value);
         }
@@ -381,31 +404,6 @@ contract COFIRebasingToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     }
 
     /**
-     * @notice  Locks an amount of tokens at the holder's address. This is useful when collateralsing
-     *          a seperate token, for e.g.
-     */
-    function lock(
-        address _account,
-        uint256 _amount
-    ) external onlyApp returns (bool) {
-        require(_amount <= balanceOf(_account), 'COFIRebasingToken: Cannot lock more than balance');
-
-        locked[_account] = locked[_account].add(_amount);
-        return true;
-    }
-
-    function unlock(
-        address _account,
-        uint256 _amount
-    ) external onlyApp returns (bool) {
-
-        locked[_account] = _amount >= locked[_account] ?
-            0 :
-            locked[_account].sub(_amount);
-        return true;
-    }
-
-    /**
      * @dev Mints new tokens, increasing totalSupply.
      */
     function mint(address _account, uint256 _amount) external onlyApp {
@@ -445,7 +443,6 @@ contract COFIRebasingToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         uint256 creditAmount = _amount.mulTruncate(_creditsPerToken(_account));
         _creditBalances[_account] = _creditBalances[_account].add(creditAmount);
 
-        console.logInt(int256(_amount));
         yieldExcl[_account] -= int256(_amount); 
 
         // If the account is non rebasing and doesn't have a set creditsPerToken

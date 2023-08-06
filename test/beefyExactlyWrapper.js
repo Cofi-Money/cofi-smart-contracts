@@ -41,20 +41,19 @@ describe("Test Beefy Exactly wrappers", function() {
 
         console.log(await helpers.time.latestBlock())
 
-        const FIUSD = await ethers.getContractFactory("FiToken")
-        const fiUSD = await FIUSD.deploy(
+        const COFITOKEN = await ethers.getContractFactory("COFIRebasingToken")
+        const coUSD = await COFITOKEN.deploy(
             "COFI Dollar",
-            "fiUSD"
+            "coUSD"
         )
-        await fiUSD.waitForDeployment()
-        console.log("fiUSD deployed: " + await fiUSD.getAddress())
-        const FIETH = await ethers.getContractFactory("FiToken")
-        const fiETH = await FIETH.deploy(
+        await coUSD.waitForDeployment()
+        console.log("coUSD deployed: " + await coUSD.getAddress())
+        const coETH = await COFITOKEN.deploy(
             "COFI Ethereum",
-            "fiETH"
+            "coETH"
         )
-        await fiETH.waitForDeployment()
-        console.log("fiETH deployed: " + await fiETH.getAddress())
+        await coETH.waitForDeployment()
+        console.log("coETH deployed: " + await coETH.getAddress())
 
         // Deploy DiamondCutFacet
         const DiamondCutFacet = await ethers.getContractFactory("DiamondCutFacet")
@@ -71,11 +70,11 @@ describe("Test Beefy Exactly wrappers", function() {
         await diamond.waitForDeployment()
         console.log("Diamond deployed: ", await diamond.getAddress())
 
-        // Set Diamond address in FiToken contracts.
-        await fiUSD.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiUSD")
-        await fiETH.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiETH")
+        // Set Diamond address in COFIRebasingToken contracts.
+        await coUSD.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coUSD")
+        await coETH.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coETH")
 
         // Deploy DiamondInit
         // DiamondInit provides a function that is called when the diamond is upgraded to initialize state variables
@@ -109,9 +108,9 @@ describe("Test Beefy Exactly wrappers", function() {
         }
        
         const initArgs = [{
-            fiUSD:  await fiUSD.getAddress(),
-            fiETH:  await fiETH.getAddress(),
-            fiBTC:  NULL_Addr,
+            coUSD:  await coUSD.getAddress(),
+            coETH:  await coETH.getAddress(),
+            coBTC:  NULL_Addr,
             vUSDC:  wmooExactlyUSDC_Addr,
             vETH:   wmooExactlyETH_Addr,
             vBTC:   NULL_Addr,
@@ -184,129 +183,127 @@ describe("Test Beefy Exactly wrappers", function() {
 
         /* Initial USDC deposit */
         await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "1000000000", // underlying [6 decimaos]
             "997500000000000000000", // 0.25% slippage fi [18 decimals]
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t0 Wrapper mooExactlyUSDC bal: ", await mooExactlyUSDC.balanceOf(wmooHopUSDC_Addr))
         console.log("t0 Diamond wmooExactlyUSDC bal: ", await wmooExactlyUSDC.balanceOf(await diamond.getAddress()))
 
         /* Initial wETH deposit */
         await weth.approve(await diamond.getAddress(), "1000000000000000000") // 1 wETH
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "1000000000000000000", // underlying [18 decimaos]
             "997500000000000000", // 0.25% slippage fi [18 decimals]
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t0 Wrapper mooExactlyUSDC bal: ", await mooExactlyETH.balanceOf(wmooHopUSDC_Addr))
         console.log("t0 Diamond wmooExactlyUSDC bal: ", await wmooExactlyETH.balanceOf(await diamond.getAddress()))
 
-        /* Simulate fiUSD yield distribution */
+        /* Simulate coUSD yield distribution */
         const whaleMooExactlyUsdc = mooExactlyUSDC.connect(whaleMooExactlyUsdcSigner)
         await whaleMooExactlyUsdc.transfer(wmooExactlyUSDC_Addr, "100000000") // "100" mooExactlyUSDC
-        // await cofiMoney.rebase(await fiUSD.getAddress())
-        console.log("t1 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        // await cofiMoney.rebase(await coUSD.getAddress())
+        console.log("t1 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t1 Wrapper mooExactlyUSDC bal: ", await mooExactlyUSDC.balanceOf(wmooExactlyUSDC_Addr))
         // Will be the same as t0
         console.log("t1 Diamond wmooExactlyUSDC bal: ", await wmooExactlyUSDC.balanceOf(await diamond.getAddress()))
-        console.log("t1 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))        
+        console.log("t1 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))        
 
-        /* Simulate fiETH yield distribution */
+        /* Simulate coETH yield distribution */
         const whaleMooExactlyEth = mooExactlyETH.connect(whaleMooExactlyEthSigner)
         await whaleMooExactlyEth.transfer(wmooExactlyETH_Addr, "100000000000000000") // 0.1 mooExactlyETH
-        // await cofiMoney.rebase(await fiETH.getAddress())
-        console.log("t1 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        // await cofiMoney.rebase(await coETH.getAddress())
+        console.log("t1 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t1 Wrapper mooExactlyETH bal: ", await mooExactlyETH.balanceOf(wmooExactlyETH_Addr))
         // Will be the same as t0
         console.log("t1 Diamond wmooExactlyETH bal: ", await wmooExactlyETH.balanceOf(await diamond.getAddress()))
-        console.log("t1 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
+        console.log("t1 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
 
         const backupOwnerAddr = await backupOwner.getAddress()
         await cofiMoney.setWhitelist(backupOwner, "1")
 
-        return { owner, backupSigner, backupOwnerAddr, fiUSD, fiETH, cofiMoney, mooExactlyUSDC,
+        return { owner, backupSigner, backupOwnerAddr, coUSD, coETH, cofiMoney, mooExactlyUSDC,
             wmooExactlyUSDC, mooExactlyETH, wmooExactlyETH, whaleMooExactlyUsdc,
             whaleMooExactlyEth, feeCollector, diamond }
     }
 
     it("Should deposit", async function() {
 
-        const { owner, backupSigner, backupOwnerAddr, fiUSD, fiETH, cofiMoney, mooExactlyUSDC,
+        const { owner, backupSigner, backupOwnerAddr, coUSD, coETH, cofiMoney, mooExactlyUSDC,
         wmooExactlyUSDC, mooExactlyETH, wmooExactlyETH, whaleMooExactlyUsdc,
         whaleMooExactlyEth, feeCollector, diamond } = await loadFixture(deploy)
 
-        /* Initial fiUSD deposit 2nd user */
+        /* Initial coUSD deposit 2nd user */
         const _usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(backupSigner)
         await _usdc.approve(await cofiMoney.getAddress(), "1000000000") // 1,000 USDC
         const _cofiMoney = (await ethers.getContractAt('COFIMoney', await cofiMoney.getAddress()))
             .connect(backupSigner)
-        await _cofiMoney.underlyingToFi(
+        await _cofiMoney.underlyingToCofi(
             "1000000000", // underlying [6 decimaos]
             "997500000000000000000", // 0.25% slippage fi [18 decimals]
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             backupOwnerAddr,
             backupOwnerAddr,
             NULL_Addr
         )
-        console.log("t2 2nd User fiUSD bal: ", await fiUSD.balanceOf(backupOwnerAddr))
-        console.log("t2 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 2nd User coUSD bal: ", await coUSD.balanceOf(backupOwnerAddr))
+        console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t2 Wrapper mooExactlyUSDC bal: ", await mooExactlyUSDC.balanceOf(wmooHopUSDC_Addr))
         console.log("t2 Diamond wmooExactlyUSDC bal: ", await wmooExactlyUSDC.balanceOf(await diamond.getAddress()))
 
-        /* Initial fiETH deposit 2nd user */
+        /* Initial coETH deposit 2nd user */
         const _weth = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(backupSigner)
         await _weth.approve(await cofiMoney.getAddress(), "1000000000000000000") // 1 wETH
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "1000000000000000000", // underlying [18 decimaos]
             "9975000000000000000", // 0.25% slippage fi [18 decimals]
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             backupOwnerAddr,
             backupOwnerAddr,
             NULL_Addr
         )
-        console.log("t2 2nd User fiETH bal: ", await fiETH.balanceOf(backupOwnerAddr))
-        console.log("t2 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 2nd User coETH bal: ", await coETH.balanceOf(backupOwnerAddr))
+        console.log("t2 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t2 Wrapper mooExactlyETH bal: ", await mooExactlyETH.balanceOf(wmooHopETH_Addr))
         console.log("t2 Diamond wmooExactlyETH bal: ", await wmooExactlyETH.balanceOf(await diamond.getAddress()))
 
-        /* Simulate fiUSD yield distribution */
+        /* Simulate coUSD yield distribution */
         await whaleMooExactlyUsdc.transfer(wmooExactlyUSDC_Addr, "50000000") // "50" mooExactlyUSDC
-        await cofiMoney.rebase(await fiUSD.getAddress())
-        console.log("t3 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t3 2nd User fiUSD bal: ", await fiUSD.balanceOf(backupOwnerAddr))
-        console.log("t3 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        await cofiMoney.rebase(await coUSD.getAddress())
+        console.log("t3 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t3 2nd User coUSD bal: ", await coUSD.balanceOf(backupOwnerAddr))
+        console.log("t3 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t3 Wrapper mooExactlyUSDC bal: ", await mooExactlyUSDC.balanceOf(wmooExactlyUSDC_Addr))
         // Will be the same as t0
         console.log("t3 Diamond wmooExactlyUSDC bal: ", await wmooExactlyUSDC.balanceOf(await diamond.getAddress()))
-        console.log("t3 User fiUSD yield earned: ", await fiUSD.getYieldEarned(await owner.getAddress()))
-        console.log("t3 2nd User fiUSD yield earned: ", await fiUSD.getYieldEarned(backupOwnerAddr))    
+        console.log("t3 User coUSD yield earned: ", await coUSD.getYieldEarned(await owner.getAddress()))
+        console.log("t3 2nd User coUSD yield earned: ", await coUSD.getYieldEarned(backupOwnerAddr))    
 
-        /* Simulate fiETH yield distribution */
+        /* Simulate coETH yield distribution */
         await whaleMooExactlyEth.transfer(wmooExactlyETH_Addr, "50000000000000000") // 0.05 mooExactlyETH
-        await cofiMoney.rebase(await fiETH.getAddress())
-        console.log("t3 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t3 2nd User fiETH bal: ", await fiETH.balanceOf(backupOwnerAddr))
-        console.log("t3 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        await cofiMoney.rebase(await coETH.getAddress())
+        console.log("t3 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t3 2nd User coETH bal: ", await coETH.balanceOf(backupOwnerAddr))
+        console.log("t3 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t3 Wrapper mooExactlyETH bal: ", await mooExactlyETH.balanceOf(wmooExactlyETH_Addr))
         // Will be the same as t0
         console.log("t3 Diamond wmooExactlyETH bal: ", await wmooExactlyETH.balanceOf(await diamond.getAddress()))
-        console.log("t3 User fiETH yield earned: ", await fiETH.getYieldEarned(await owner.getAddress()))
-        console.log("t3 2nd User fiETH yield earned: ", await fiETH.getYieldEarned(backupOwnerAddr))
-
-        /* Redeem fiUSD 2nd user */
+        console.log("t3 User coETH yield earned: ", await coETH.getYieldEarned(await owner.getAddress()))
+        console.log("t3 2nd User coETH yield earned: ", await coETH.getYieldEarned(backupOwnerAddr))
 
     })
 })

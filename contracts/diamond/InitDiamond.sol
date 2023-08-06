@@ -53,8 +53,8 @@ contract InitDiamond {
         s.vault[_args.coBTC]    = _args.vBTC;
 
         // Only CompoundV2 wrapper is harvestable upon launch.
-        s.harvestable[s.vault[_args.coUSD]] = 1;
-        s.harvestable[s.vault[_args.coETH]] = 1;
+        // s.harvestable[s.vault[_args.coUSD]] = 1;
+        // s.harvestable[s.vault[_args.coETH]] = 1;
         s.harvestable[s.vault[_args.coBTC]] = 1;
 
         // Set mint enabled.

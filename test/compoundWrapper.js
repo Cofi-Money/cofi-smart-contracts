@@ -91,25 +91,25 @@ describe("Test Compound custom wrapper", function() {
         console.log("Deployed wsoBTC to: ", (await wsoBTC.getAddress()))
 
         /* Deploy COFI stablecoins */
-        const FITOKEN = await ethers.getContractFactory("FiToken")
-        const fiUSD = await FITOKEN.deploy(
+        const FITOKEN = await ethers.getContractFactory("COFIRebasingToken")
+        const coUSD = await FITOKEN.deploy(
             "COFI Dollar",
-            "fiUSD"
+            "coUSD"
         )
-        await fiUSD.waitForDeployment()
-        console.log("fiUSD deployed: " + await fiUSD.getAddress())
-        const fiETH = await FITOKEN.deploy(
+        await coUSD.waitForDeployment()
+        console.log("coUSD deployed: " + await coUSD.getAddress())
+        const coETH = await FITOKEN.deploy(
             "COFI Ethereum",
-            "fiETH"
+            "coETH"
         )
-        await fiETH.waitForDeployment()
-        console.log("fiETH deployed: " + await fiETH.getAddress())
-        const fiBTC = await FITOKEN.deploy(
+        await coETH.waitForDeployment()
+        console.log("coETH deployed: " + await coETH.getAddress())
+        const coBTC = await FITOKEN.deploy(
             "COFI Ethereum",
-            "fiETH"
+            "coETH"
         )
-        await fiBTC.waitForDeployment()
-        console.log("fiBTC deployed: " + await fiBTC.getAddress())
+        await coBTC.waitForDeployment()
+        console.log("coBTC deployed: " + await coBTC.getAddress())
 
         // Deploy DiamondCutFacet
         const DiamondCutFacet = await ethers.getContractFactory("DiamondCutFacet")
@@ -127,12 +127,12 @@ describe("Test Compound custom wrapper", function() {
         console.log("Diamond deployed: ", await diamond.getAddress())
 
         // Set Diamond address in FiToken contracts.
-        await fiUSD.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiUSD")
-        await fiETH.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiETH")
-        await fiBTC.setApp(await diamond.getAddress())
-        console.log("Diamond address set in fiBTC")
+        await coUSD.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coUSD")
+        await coETH.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coETH")
+        await coBTC.setApp(await diamond.getAddress())
+        console.log("Diamond address set in coBTC")
 
         await wsoUSDC.setAuthorized((await diamond.getAddress()), "1")
         await wsoETH.setAuthorized((await diamond.getAddress()), "1")
@@ -171,9 +171,9 @@ describe("Test Compound custom wrapper", function() {
         }
        
         const initArgs = [{
-            fiUSD:  await fiUSD.getAddress(),
-            fiETH:  await fiETH.getAddress(),
-            fiBTC:  await fiBTC.getAddress(),
+            coUSD:  await coUSD.getAddress(),
+            coETH:  await coETH.getAddress(),
+            coBTC:  await coBTC.getAddress(),
             vUSDC:  await wsoUSDC.getAddress(),
             vETH:   await wsoETH.getAddress(),
             vBTC:   await wsoBTC.getAddress(),
@@ -226,42 +226,42 @@ describe("Test Compound custom wrapper", function() {
 
         /* Initial deposits */
         await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "500000000", // 500 USDC underlying [6 decimals]
             "498750000000000000000", // 0.25% slippage fi [18 decimals]
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         console.log("t0 wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await wsoUSDC.getAddress()))
 
         await weth.approve(await diamond.getAddress(), "1000000000000000000") // 1 wETH
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "500000000000000000", // 0.5 wETH underlying [18 decimals]
             "498750000000000000", // 0.25% slippage fi [18 decimals]
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         console.log("t0 wsoETH Vault soWETH bal: ", await soWeth.balanceOf(await wsoETH.getAddress()))
 
         await wbtc.approve(await diamond.getAddress(), "50000000") // 0.5 wBTC
-        await cofiMoney.underlyingToFi(
+        await cofiMoney.underlyingToCofi(
             "25000000", // 0.25 wBTC underlying [8 decimals]
             "24937500", // 0.25% slippage fi [18 decimals]
-            await fiBTC.getAddress(),
+            await coBTC.getAddress(),
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
         )
-        console.log("t0 User fiBTC bal: ", await fiBTC.balanceOf(await owner.getAddress()))
-        console.log("t0 Fee Collector fiBTC bal: ", await fiBTC.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 User coBTC bal: ", await coBTC.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coBTC bal: ", await coBTC.balanceOf(await feeCollector.getAddress()))
         console.log("t0 wsoBTC Vault soWBTC bal: ", await soWbtc.balanceOf(await wsoBTC.getAddress()))
 
         // Set up executable harvest
@@ -285,104 +285,104 @@ describe("Test Compound custom wrapper", function() {
         console.log("Set routes")
 
         return {
-            owner, whaleUsdc, whaleWeth, whaleWbtc, fiUSD, fiETH, fiBTC, wsoUSDC, wsoETH, wsoBTC, feeCollector,
+            owner, whaleUsdc, whaleWeth, whaleWbtc, coUSD, coETH, coBTC, wsoUSDC, wsoETH, wsoBTC, feeCollector,
             soUsdc, soWeth, soWbtc, cofiMoney, usdc, weth, wbtc, WSOUSDC
         }
     }
 
-    it("Should rebase manually (harvesting with swap) and redeem fiUSD", async function() {
+    it("Should rebase manually (harvesting with swap) and redeem coUSD", async function() {
 
-        const { owner, fiUSD, feeCollector, cofiMoney, usdc, soUsdc, wsoUSDC } = await loadFixture(deploy)
+        const { owner, coUSD, feeCollector, cofiMoney, usdc, soUsdc, wsoUSDC } = await loadFixture(deploy)
 
         /* Rebase */
-        await cofiMoney.rebase(await fiUSD.getAddress())
+        await cofiMoney.rebase(await coUSD.getAddress())
 
-        console.log("t1 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t1 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         // Should increase
         console.log("t1 wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await wsoUSDC.getAddress()))
         
-        await fiUSD.approve(await cofiMoney.getAddress(), await fiUSD.balanceOf(await owner.getAddress()))
-        await cofiMoney.fiToUnderlying(
-            await fiUSD.balanceOf(await owner.getAddress()),
+        await coUSD.approve(await cofiMoney.getAddress(), await coUSD.balanceOf(await owner.getAddress()))
+        await cofiMoney.cofiToUnderlying(
+            await coUSD.balanceOf(await owner.getAddress()),
             "0",
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             await owner.getAddress(),
             await owner.getAddress()
         )
 
-        console.log("t2 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         // Should deplete
         console.log("t2 wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await wsoUSDC.getAddress()))
         console.log('t2 User USDC bal: ', await usdc.balanceOf(await owner.getAddress()))
     })
 
-    it("Should rebase manually (harvesting with swap) and redeem fiETH", async function() {
+    it("Should rebase manually (harvesting with swap) and redeem coETH", async function() {
 
-        const { owner, fiETH, feeCollector, cofiMoney, weth, soWeth, wsoETH } = await loadFixture(deploy)
+        const { owner, coETH, feeCollector, cofiMoney, weth, soWeth, wsoETH } = await loadFixture(deploy)
 
         /* Rebase */
-        await cofiMoney.rebase(await fiETH.getAddress())
+        await cofiMoney.rebase(await coETH.getAddress())
 
-        console.log("t1 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t1 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         // Should increase
         console.log("t1 wsoETH Vault soWETH bal: ", await soWeth.balanceOf(await wsoETH.getAddress()))
         
-        await fiETH.approve(await cofiMoney.getAddress(), await fiETH.balanceOf(await owner.getAddress()))
-        await cofiMoney.fiToUnderlying(
-            await fiETH.balanceOf(await owner.getAddress()),
+        await coETH.approve(await cofiMoney.getAddress(), await coETH.balanceOf(await owner.getAddress()))
+        await cofiMoney.cofiToUnderlying(
+            await coETH.balanceOf(await owner.getAddress()),
             "0",
-            await fiETH.getAddress(),
+            await coETH.getAddress(),
             await owner.getAddress(),
             await owner.getAddress()
         )
 
-        console.log("t2 User fiETH bal: ", await fiETH.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector fiETH bal: ", await fiETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t2 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
         // Should deplete
         console.log("t2 wsoETH Vault soWETH bal: ", await soWeth.balanceOf(await wsoETH.getAddress()))
         console.log('t2 User wETH bal: ', await weth.balanceOf(await owner.getAddress()))
     })
 
-    it("Should rebase manually (harvesting with swap) and redeem fiBTC", async function() {
+    it("Should rebase manually (harvesting with swap) and redeem coBTC", async function() {
 
-        const { owner, fiBTC, feeCollector, cofiMoney, wbtc, soWbtc, wsoBTC } = await loadFixture(deploy)
+        const { owner, coBTC, feeCollector, cofiMoney, wbtc, soWbtc, wsoBTC } = await loadFixture(deploy)
 
         /* Rebase */
-        await cofiMoney.rebase(await fiBTC.getAddress())
+        await cofiMoney.rebase(await coBTC.getAddress())
 
-        console.log("t1 User fiBTC bal: ", await fiBTC.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiBTC bal: ", await fiBTC.balanceOf(await feeCollector.getAddress()))
+        console.log("t1 User coBTC bal: ", await coBTC.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coBTC bal: ", await coBTC.balanceOf(await feeCollector.getAddress()))
         // Should increase
         console.log("t1 wsoBTC Vault soWBTC bal: ", await soWbtc.balanceOf(await wsoBTC.getAddress()))
         
-        await fiBTC.approve(await cofiMoney.getAddress(), await fiBTC.balanceOf(await owner.getAddress()))
-        await cofiMoney.fiToUnderlying(
-            await fiBTC.balanceOf(await owner.getAddress()),
+        await coBTC.approve(await cofiMoney.getAddress(), await coBTC.balanceOf(await owner.getAddress()))
+        await cofiMoney.cofiToUnderlying(
+            await coBTC.balanceOf(await owner.getAddress()),
             "0",
-            await fiBTC.getAddress(),
+            await coBTC.getAddress(),
             await owner.getAddress(),
             await owner.getAddress()
         )
 
-        console.log("t2 User fiBTC bal: ", await fiBTC.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector fiBTC bal: ", await fiBTC.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 User coBTC bal: ", await coBTC.balanceOf(await owner.getAddress()))
+        console.log("t2 Fee Collector coBTC bal: ", await coBTC.balanceOf(await feeCollector.getAddress()))
         // Should deplete
         console.log("t2 wsoBTC Vault soWBTC bal: ", await soWbtc.balanceOf(await wsoBTC.getAddress()))
         console.log('t2 User wBTC bal: ', await wbtc.balanceOf(await owner.getAddress()))
     })
 
-    it("Should migrate fiUSD", async function() {
+    it("Should migrate coUSD", async function() {
 
-        const { owner, fiUSD, feeCollector, cofiMoney, usdc, soUsdc, wsoUSDC, WSOUSDC, whaleUsdc } = await loadFixture(deploy)
+        const { owner, coUSD, feeCollector, cofiMoney, usdc, soUsdc, wsoUSDC, WSOUSDC, whaleUsdc } = await loadFixture(deploy)
 
         /* Rebase */
-        await cofiMoney.rebase(await fiUSD.getAddress())
+        await cofiMoney.rebase(await coUSD.getAddress())
 
-        console.log("t1 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t1 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         // Should increase
         console.log("t1 wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await wsoUSDC.getAddress()))
 
@@ -398,16 +398,16 @@ describe("Test Compound custom wrapper", function() {
             "200", // slippage = 2%
             "12" // wait = 12 seconds
         )
-        await wsoUSDC.waitForDeployment()
-        console.log("Deployed _wsoUSDC to: ", (await wsoUSDC.getAddress()))
+        await _wsoUSDC.waitForDeployment()
+        console.log("Deployed _wsoUSDC to: ", (await _wsoUSDC.getAddress()))
         await _wsoUSDC.setAuthorized(await cofiMoney.getAddress(), "1")
         // Transfer 2x USDC buffer to Diamond
         whaleUsdc.transfer(await cofiMoney.getAddress(), "200000000")
         // Migrate
-        await cofiMoney.migrate(await fiUSD.getAddress(), await _wsoUSDC.getAddress())
+        await cofiMoney.migrate(await coUSD.getAddress(), await _wsoUSDC.getAddress())
 
-        console.log("t2 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t2 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         // Should deplete
         console.log("t2 wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await wsoUSDC.getAddress()))
         console.log("t2 Diamond wsoUSDC bal: ", await wsoUSDC.balanceOf(await cofiMoney.getAddress()))
@@ -415,80 +415,21 @@ describe("Test Compound custom wrapper", function() {
         console.log("t2 _wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await _wsoUSDC.getAddress()))
         console.log("t2 Diamond _wsoUSDC bal: ", await _wsoUSDC.balanceOf(await cofiMoney.getAddress()))
         
-        await fiUSD.approve(await cofiMoney.getAddress(), await fiUSD.balanceOf(await owner.getAddress()))
-        await cofiMoney.fiToUnderlying(
-            await fiUSD.balanceOf(await owner.getAddress()),
+        await coUSD.approve(await cofiMoney.getAddress(), await coUSD.balanceOf(await owner.getAddress()))
+        await cofiMoney.cofiToUnderlying(
+            await coUSD.balanceOf(await owner.getAddress()),
             "0",
-            await fiUSD.getAddress(),
+            await coUSD.getAddress(),
             await owner.getAddress(),
             await owner.getAddress()
         )
 
-        console.log("t3 User fiUSD bal: ", await fiUSD.balanceOf(await owner.getAddress()))
-        console.log("t3 Fee Collector fiUSD bal: ", await fiUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t3 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t3 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
         // Should deplete
         console.log("t3 _wsoUSDC Vault soUSDC bal: ", await soUsdc.balanceOf(await _wsoUSDC.getAddress()))
         console.log('t3 User USDC bal: ', await usdc.balanceOf(await owner.getAddress()))
     })
-
-    // it("Should harvest with swap, rebase, and redeem fiUSD", async function() {
-
-    //     // wsoBTC => sowBTC => wBTC
-    //     const { owner, wsoBTC, sowBTC, wbtc } = await loadFixture(deploy)
-
-    //     /* Harvest */
-    //     await wsoBTC.harvest()
-
-    //     // wsoBTC balance is unchanged
-    //     const t1_wsoBTCBal = await wsoBTC.balanceOf(await owner.getAddress())
-    //     // Preview how much wBTC Owner should redeem
-    //     const t1_wbtcBal = await wsoBTC.previewRedeem(t1_wsoBTCBal.toString())
-        
-    //     // Post-harvest balance
-    //     console.log("t1 Owner wsoBTC bal: " + t1_wsoBTCBal.toString())
-    //     console.log("t1 Owner wBTC bal: " + t1_wbtcBal.toString())
-
-    //     await wsoBTC.redeem("25000000", owner.getAddress(), owner.getAddress())
-
-    //     const t2_wbtcBal = await wbtc.balanceOf(owner.getAddress())
-    //     console.log("t2 Owner wBTC bal: " + t2_wbtcBal.toString())
-    // })
-
-    // it("Should harvest with swap disabled and redeem", async function() {
-
-    //     // wsoBTC => sowBTC => wBTC
-    //     const { owner, wsoBTC, sowBTC, wbtc, _wbtc } = await loadFixture(deploy)
-
-    //     // Disable swap route
-    //     await wsoBTC.setEnabled("0")
-    
-    //     _wbtc.transfer(wsoBTC.getAddress(), "10000000") // 0.1 wBTC
-    //     const t1_wrapperWbtcBal = await wbtc.balanceOf(wsoBTC.getAddress())
-    //     console.log("t1 Wrapper wBTC bal: " + t1_wrapperWbtcBal.toString())
-    //     // For some reason this contract instance only shows the bal increase
-    //     // despite both instances referring to the same contract.
-    //     const t1_wrapperWbtcBal_ = await _wbtc.balanceOf(wsoBTC.getAddress())
-    //     console.log("t1 Wrapper wBTC bal: " + t1_wrapperWbtcBal_.toString())
-
-    //     /* Harvest */
-    //     await wsoBTC.harvest()
-    //     const t2_wrapperWbtcBal = await wbtc.balanceOf(wsoBTC.getAddress())
-    //     console.log("t2 Wrapper wBTC bal: " + t2_wrapperWbtcBal.toString())
-
-    //     // wsoBTC balance is unchanged
-    //     const t2_wsoBTCBal = await wsoBTC.balanceOf(await owner.getAddress())
-    //     // Preview how much wBTC Owner should redeem
-    //     const t2_wbtcBal = await wsoBTC.previewRedeem(t2_wsoBTCBal.toString())
-        
-    //     // Post-harvest balance
-    //     console.log("t2 Owner wsoBTC bal: " + t2_wsoBTCBal.toString())
-    //     console.log("t2 Owner wBTC bal: " + t2_wbtcBal.toString())
-
-    //     await wsoBTC.redeem("25000000", owner.getAddress(), owner.getAddress())
-
-    //     const t3_wbtcBal = await wbtc.balanceOf(owner.getAddress())
-    //     console.log("t3 Owner wBTC bal: " + t3_wbtcBal.toString())
-    // })
 
     // it("Should prevent unauthorized access", async function() {
 

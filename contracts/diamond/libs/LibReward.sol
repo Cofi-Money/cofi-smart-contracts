@@ -61,13 +61,13 @@ library LibReward {
 
         if (
             // If there is a refer reward.
-            s.referReward > 0 &&
+            s.referReward == 1 &&
             // If the user has not already claimed a refer reward.
             s.rewardStatus[msg.sender].referClaimed == 0 &&
             // If the referrer is a whitelisted account.
-            s.isWhitelisted[_referral] > 0 &&
+            s.isWhitelisted[_referral] == 1 &&
             // If referrals are enabled.
-            s.rewardStatus[_referral].referDisabled < 1
+            s.rewardStatus[_referral].referDisabled == 0
         ) {
             // Apply referral to user.
             s.XPC[msg.sender] += s.referReward;

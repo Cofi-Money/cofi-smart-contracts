@@ -14,19 +14,6 @@ struct RewardStatus {
     uint8   referDisabled;
 }
 
-// enum LoanStatus {
-//     NonExistent,
-//     Active,
-//     Repaid
-// }
-
-// struct LoanParams {
-//     uint256 fiLocked;
-//     uint256 coIssued;
-//     uint256 maxDuration;
-//     LoanStatus status;
-// }
-
 struct AppStorage {
 
     /*//////////////////////////////////////////////////////////////
@@ -115,21 +102,6 @@ struct AppStorage {
     address backupOwner;
 
     uint8 reentrantStatus;
-
-    /*//////////////////////////////////////////////////////////////
-                            LOAN PARAMS
-    //////////////////////////////////////////////////////////////*/
-
-    // mapping(address => uint256) maxDuration;
-
-    // mapping(address => uint256) minBorrow;
-
-    // mapping(address => uint256) CR;
-
-    // mapping(address => uint8)   loanEnabled;
-
-    // // E.g., Alice => coUSD => loanParams;
-    // mapping(address => mapping(address => LoanParams[])) loanParams;
 }
 
 library LibAppStorage {
@@ -169,14 +141,6 @@ contract Modifiers {
         _;
     }
 
-    // modifier minBorrow(uint256 _amount, address _fi) {
-    //     require(
-    //         _amount > s.minBorrow[_fi],
-    //         'Insufficient borrow amount for cofi token'
-    //     );
-    //     _;
-    // }
-
     modifier mintEnabled(address _fi) {
         require(s.mintEnabled[_fi] == 1, 'Mint not enabled for cofi token');
         _;
@@ -186,11 +150,6 @@ contract Modifiers {
         require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for cofi token');
         _;
     }
-
-    // modifier loanEnabled(address _fi) {
-    //     require(s.loanEnabled[_fi] == 1, 'Loan not enabled for cofi token');
-    //     _;
-    // }
 
     modifier onlyOwner() {
         require(s.owner == msg.sender || s.backupOwner == msg.sender, 'Caller not owner');

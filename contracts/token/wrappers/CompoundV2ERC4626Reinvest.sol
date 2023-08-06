@@ -8,9 +8,9 @@ import { FixedPointMathLib } from 'solmate/src/utils/FixedPointMathLib.sol';
 import { PercentageMath } from './libs/PercentageMath.sol';
 import { StableMath } from './libs/StableMath.sol';
 import { LibCompound } from './libs/LibCompound.sol';
-import { ICERC20 } from './interfaces/ICERC20.sol';
-import { IComptroller } from './interfaces/IComptroller.sol';
-import { ISwapRouter } from './interfaces/ISwapRouter.sol';
+import { ICERC20 } from './interfaces/compound/ICERC20.sol';
+import { IComptroller } from './interfaces/compound/IComptroller.sol';
+import { ISwapRouter } from './interfaces/uniswap/ISwapRouter.sol';
 import { DexSwap } from './utils/swapUtils.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';
@@ -557,7 +557,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyAdmin() {
-        if (msg.sender != owner() || admin[msg.sender] < 1) {
+        if (msg.sender != owner() || admin[msg.sender] == 0) {
             revert NOT_ADMIN();
         }
         _;
@@ -574,7 +574,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     }
 
     modifier onlyAuthorizedOrAdmin() {
-        if (msg.sender != owner() || admin[msg.sender] < 1) {
+        if (msg.sender != owner() || admin[msg.sender] == 0) {
             // If not admin, check if authorized
             if (authorizedEnabled == 1) {
                 if (authorized[msg.sender] == 0) {
