@@ -2,6 +2,8 @@
 pragma solidity ^0.8.0;
 
 import { Modifiers } from "../libs/LibAppStorage.sol";
+import { LibToken } from '../libs/LibToken.sol';
+import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
 /**
 
@@ -16,6 +18,42 @@ import { Modifiers } from "../libs/LibAppStorage.sol";
 contract AccessFacet is Modifiers {
 
     /*//////////////////////////////////////////////////////////////
+                            TOKEN MANAGEMENT
+    //////////////////////////////////////////////////////////////*/
+
+    function recover(
+        address _token,
+        uint256 _amount,
+        address _recipient
+    )   external
+        onlyOwner
+        returns (bool)
+    {
+        LibToken._transfer(_token, _amount, _recipient);
+        return true;
+    }
+
+    function lock(
+        address _cofi,
+        address _account,
+        uint256 _amount
+    ) external onlyAdmin returns (bool) {
+
+        LibToken._lock(_cofi, _account, _amount);
+        return true;
+    }
+
+    function unlock(
+        address _cofi,
+        address _account,
+        uint256 _amount
+    ) external onlyAdmin returns (bool) {
+
+        LibToken._unlock(_cofi, _account, _amount);
+        return true;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                             ADMIN - SETTERS
     //////////////////////////////////////////////////////////////*/
 
@@ -26,7 +64,6 @@ contract AccessFacet is Modifiers {
         onlyWhitelister
         returns (bool)
     {
-
         s.isWhitelisted[_account] = _enabled;
         return true;
     }

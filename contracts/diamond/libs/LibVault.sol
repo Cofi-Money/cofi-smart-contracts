@@ -20,7 +20,7 @@ library LibVault {
 
     /// @notice Emitted when an unwrap operation is executed.
     ///
-    /// @param  amount      The amount of fi tokens redeemed.
+    /// @param  amount      The amount of cofi tokens redeemed.
     /// @param  shares      The amount of shares burned.
     /// @param  vault       The ERC4626 Vault.
     /// @param  assets      The amount of underlying tokens received from the Vault.
@@ -29,19 +29,25 @@ library LibVault {
 
     /// @notice Emitted when a vault migration is executed.
     ///
-    /// @param  fi          The fi token to migrate underlying tokens for.
+    /// @param  cofi        The cofi token to migrate underlying tokens for.
     /// @param  oldVault    The vault migrated from.
     /// @param  newVault    The vault migrated to.
     /// @param  oldAssets   The amount of assets pre-migration.
     /// @param  newAssets   The amount of assets post-migration.
-    event VaultMigration(address indexed fi, address indexed oldVault, address indexed newVault, uint256 oldAssets, uint256 newAssets);
+    event VaultMigration(
+        address indexed cofi,
+        address indexed oldVault,
+        address indexed newVault,
+        uint256 oldAssets,
+        uint256 newAssets
+    );
 
     /// @notice Emitted when a harvest operation is executed (usually immediately prior to a rebase).
     ///
-    /// @param fi       The fi token being harvested for.
+    /// @param cofi     The cofi token being harvested for.
     /// @param vault    The actual vault where the harvest operation resides.
     /// @param assets   The amount of assets deposited.
-    event Harvest(address indexed fi, address indexed vault, uint256 assets);
+    event Harvest(address indexed cofi, address indexed vault, uint256 assets);
 
     /*//////////////////////////////////////////////////////////////
                                 VIEWS
@@ -102,7 +108,7 @@ library LibVault {
 
     /// @notice Unwraps shares into underlying tokens via the relevant Vault.
     ///
-    /// @param  _amount     The amount of fi tokens to redeem (target 1:1 correlation to underlying tokens).
+    /// @param  _amount     The amount of cofi tokens to redeem (target 1:1 correlation to underlying tokens).
     /// @param  _vault      The ERC4626 Vault.
     /// @param  _recipient  The recipient of the underlying tokens.
     function _unwrap(
@@ -111,7 +117,7 @@ library LibVault {
         address _recipient
     ) internal returns (uint256 assets) {
 
-        // Retrieve the corresponding number of shares for the amount of fi tokens provided.
+        // Retrieve the corresponding number of shares for the amount of cofi tokens provided.
         uint256 shares = IERC4626(_vault).previewDeposit(_amount);
 
         assets = IERC4626(_vault).redeem(shares, _recipient, address(this));
@@ -120,14 +126,14 @@ library LibVault {
 
     /// @notice Executes a harvest operation in the vault contract.
     ///
-    /// @param _fi The fi token to harvest for.
+    /// @param _cofi The cofi token to harvest for.
     function _harvest(
-        address _fi
+        address _cofi
     ) internal {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        uint256 assets = IERC4626(s.vault[_fi]).harvest();
+        uint256 assets = IERC4626(s.vault[_cofi]).harvest();
         if (assets == 0) return;
-        emit Harvest(_fi, s.vault[_fi], assets);
+        emit Harvest(_cofi, s.vault[_cofi], assets);
     }
 }

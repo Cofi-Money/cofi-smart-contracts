@@ -26,7 +26,7 @@ contract PointFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice This function must be called after the last rebase of a pointsRate
-    ///         and before the application of a new pointsRate for a given fi token,
+    ///         and before the application of a new pointsRate for a given cofi token,
     ///         for every account that is eliigble for yield/points. If not, the new
     ///         pointsRate will apply to yield earned during the previous, different
     ///         pointsRate epoch - which we want to avoid.
@@ -35,14 +35,14 @@ contract PointFacet is Modifiers {
     ///         size limit for passing addresses, in order for all relevant accounts
     ///         to be updated.
     ///
-    /// @dev    Rebasing for the relevant fi token should be paused beforehand so as to
+    /// @dev    Rebasing for the relevant cofi token should be paused beforehand so as to
     ///         not interupt this process.
     ///
     /// @param  _accounts   The array of accounts to capture points for.
-    /// @param  _fi         The fi token to capture points for.
+    /// @param  _cofi       The cofi token to capture points for.
     function captureYieldPoints(
         address[] memory    _accounts,
-        address             _fi
+        address             _cofi
     )   external
         nonReentrant
         returns (bool)
@@ -66,13 +66,13 @@ contract PointFacet is Modifiers {
          */
         uint256 yield;
         for(uint i = 0; i < _accounts.length; ++i) {
-        yield = LibToken._getYieldEarned(_accounts[i], _fi);
+        yield = LibToken._getYieldEarned(_accounts[i], _cofi);
             // If the account has earned yield since the last yield capture event.
-            if (s.YPC[_accounts[i]][_fi].yield < yield) {
-                s.YPC[_accounts[i]][_fi].points +=
-                    (yield - s.YPC[_accounts[i]][_fi].yield)
-                        .percentMul(s.pointsRate[_fi]);
-                s.YPC[_accounts[i]][_fi].yield = yield;
+            if (s.YPC[_accounts[i]][_cofi].yield < yield) {
+                s.YPC[_accounts[i]][_cofi].points +=
+                    (yield - s.YPC[_accounts[i]][_cofi].yield)
+                        .percentMul(s.pointsRate[_cofi]);
+                s.YPC[_accounts[i]][_cofi].yield = yield;
             }
         }
         return true;
@@ -102,13 +102,13 @@ contract PointFacet is Modifiers {
     /// @dev    Yield points must be captured beforehand to ensure they
     ///         have updated correctly prior to a pointsRate change.
     function setPointsRate(
-        address _fi,
+        address _cofi,
         uint256 _amount
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.pointsRate[_fi] = _amount;
+        s.pointsRate[_cofi] = _amount;
         return true;
     }
 
@@ -157,25 +157,25 @@ contract PointFacet is Modifiers {
     ///         (accrued through yield earnings and other means).
     ///
     /// @param  _account    The address to enquire for.
-    /// @param  _fi         An array of fi tokens to retrieve data for.
+    /// @param  _cofi       An array of cofi tokens to retrieve data for.
     function getPoints(
         address             _account,
-        address[] memory    _fi
+        address[] memory    _cofi
     )   public
         view
         returns (uint256 pointsTotal)
     {
-        pointsTotal = getYieldPoints(_account, _fi) + s.XPC[_account];
+        pointsTotal = getYieldPoints(_account, _cofi) + s.XPC[_account];
     }
 
     /// @notice Returns the number of points accrued, through yield earnings, across
-    ///         a given number of fi tokens (e.g., [fiUSD, fiETH, fiBTC]).
+    ///         a given number of cofi tokens (e.g., [coUSD, coETH, coBTC]).
     ///
     /// @param  _account    The address to enquire for.
-    /// @param  _fi         An array of fi tokens to retrieve yield points for.
+    /// @param  _cofi       An array of cofi tokens to retrieve yield points for.
     function getYieldPoints(
         address             _account,
-        address[] memory    _fi
+        address[] memory    _cofi
     )   public
         view
         returns (uint256 pointsTotal)
@@ -184,11 +184,11 @@ contract PointFacet is Modifiers {
         uint256 pointsCaptured;
         uint256 pointsPending;
 
-        for(uint i = 0; i < _fi.length; ++i) {
-            yield           += LibToken._getYieldEarned(_account, _fi[i]);
-            pointsCaptured  += s.YPC[_account][_fi[i]].points;
-            pointsPending   += (yield - s.YPC[_account][_fi[i]].yield)
-                .percentMul(s.pointsRate[_fi[i]]);
+        for(uint i = 0; i < _cofi.length; ++i) {
+            yield           += LibToken._getYieldEarned(_account, _cofi[i]);
+            pointsCaptured  += s.YPC[_account][_cofi[i]].points;
+            pointsPending   += (yield - s.YPC[_account][_cofi[i]].yield)
+                .percentMul(s.pointsRate[_cofi[i]]);
             pointsTotal     += pointsCaptured + pointsPending;
         }
     }
@@ -204,12 +204,12 @@ contract PointFacet is Modifiers {
 
     /// @return The pointsRate denominated in basis points.
     function getPointsRate(
-        address _fi
+        address _cofi
     )   external
         view
         returns (uint256)
     {
-        return s.pointsRate[_fi];
+        return s.pointsRate[_cofi];
     }
 
     function getInitReward(

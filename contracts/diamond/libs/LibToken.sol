@@ -5,7 +5,7 @@ import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { LibVault } from './LibVault.sol';
 import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import { IFiToken } from '.././interfaces/IFiToken.sol';
+import { ICOFIToken } from '.././interfaces/ICOFIToken.sol';
 import 'contracts/token/utils/StableMath.sol';
 import 'hardhat/console.sol';
 
@@ -15,34 +15,34 @@ library LibToken {
 
     /// @notice Emitted when a transfer operation is executed.
     ///
-    /// @param  asset           The asset transferred (underlying, share, or fi token).
+    /// @param  asset           The asset transferred (underlying, share, or cofi token).
     /// @param  amount          The amount transferred.
     /// @param  transferFrom    The account the asset was transferred from.
     /// @param  recipient       The recipient of the transfer.
     event Transfer(address indexed asset, uint256 amount, address indexed transferFrom, address indexed recipient);
 
-    /// @notice Emitted when a fi token is minted.
+    /// @notice Emitted when a cofi token is minted.
     ///
-    /// @param  fi      The address of the minted fi token.
+    /// @param  cofi    The address of the minted cofi token.
     /// @param  amount  The amount of fis minted.
     /// @param  to      The recipient of the minted fis.
-    event Mint(address indexed fi, uint256 amount, address indexed to);
+    event Mint(address indexed cofi, uint256 amount, address indexed to);
 
-    /// @notice Emitted when a fi token is burned.
+    /// @notice Emitted when a cofi token is burned.
     ///
-    /// @param  fi      The address of the burned fi.
+    /// @param  cofi    The address of the burned fi.
     /// @param  amount  The amount of fis burned.
     /// @param  from    The account burned from.
-    event Burn(address indexed fi, uint256 amount, address indexed from);
+    event Burn(address indexed cofi, uint256 amount, address indexed from);
 
-    /// @notice Emitted when the total supply of a fi token is updated.
+    /// @notice Emitted when the total supply of a cofi token is updated.
     ///
-    /// @param  fi      The fi token with updated supply.
+    /// @param  cofi    The cofi token with updated supply.
     /// @param  assets  The new total supply.
     /// @param  yield   The amount of yield added.
     /// @param  rCPT    Rebasing credits per token of FiToken.sol contract (used to calc interest rate).
     /// @param  fee     The service fee captured - a share of the yield.
-    event TotalSupplyUpdated(address indexed fi, uint256 assets, uint256 yield, uint256 rCPT, uint256 fee);
+    event TotalSupplyUpdated(address indexed cofi, uint256 assets, uint256 yield, uint256 rCPT, uint256 fee);
 
     /// @notice Emitted when a deposit action is executed.
     ///
@@ -56,7 +56,7 @@ library LibToken {
     ///
     /// @param  asset       The asset being withdrawn (e.g., USDC).
     /// @param  amount      The amount withdrawn.
-    /// @param  depositFrom The account fi tokens were transferred from.
+    /// @param  depositFrom The account cofi tokens were transferred from.
     /// @param  fee         The redeem fee captured.
     event Withdraw(address indexed asset, uint256 amount, address indexed depositFrom, uint256 fee);
 
@@ -103,215 +103,259 @@ library LibToken {
 
     /// @notice Executes a mint operation in the context of COFI.
     ///
-    /// @param  _fi     The fi token to mint.
+    /// @param  _cofi   The cofi token to mint.
     /// @param  _to     The account to mint to.
-    /// @param  _amount The amount of fi tokens to mint.
+    /// @param  _amount The amount of cofi tokens to mint.
     function _mint(
-        address _fi,
+        address _cofi,
         address _to,
         uint256 _amount
     ) internal {
 
-        IFiToken(_fi).mint(_to, _amount);
+        ICOFIToken(_cofi).mint(_to, _amount);
         console.log('LibToken minted');
-        emit Mint(_fi, _amount, _to);
+        emit Mint(_cofi, _amount, _to);
     }
 
 
     /// @notice Executes a mint operation and opts the receiver into rebases.
     ///
-    /// @param  _fi     The fi token to mint.
+    /// @param  _cofi   The cofi token to mint.
     /// @param  _to     The account to mint to.
-    /// @param  _amount The amount of fi tokens to mint.
+    /// @param  _amount The amount of cofi tokens to mint.
     function _mintOptIn(
-        address _fi,
+        address _cofi,
         address _to,
         uint256 _amount
     ) internal {
 
-        IFiToken(_fi).mintOptIn(_to, _amount);
-        emit Mint(_fi, _amount, _to);
+        ICOFIToken(_cofi).mintOptIn(_to, _amount);
+        emit Mint(_cofi, _amount, _to);
     }
 
     /// @notice Executes a burn operation in the context of COFI.
     ///
-    /// @param  _fi     The fi token to burn.
+    /// @param  _cofi   The cofi token to burn.
     /// @param  _from   The account to burn from.
     /// @param  _amount The amount of fis to burn.
     function _burn(
-        address _fi,
+        address _cofi,
         address _from,
         uint256 _amount
     ) internal {
 
-        IFiToken(_fi).burn(_from, _amount);
-        emit Burn(_fi, _amount, _from);
+        ICOFIToken(_cofi).burn(_from, _amount);
+        emit Burn(_cofi, _amount, _from);
     }
 
-    /// @notice Function for updating fi token supply relative to vault earnings.
+    /// @notice Calls redeem operation on FiToken contract.
+    /// @dev    Skips approval check.
+    function _redeem(
+        address _cofi,
+        address _from,
+        address _to,
+        uint256 _amount
+    ) internal {
+
+        ICOFIToken(_cofi).redeem(_from, _to, _amount);
+    }
+
+    /// @notice Ensures the amount of cofi tokens are non-transferable from the account.
     ///
-    /// @param  _fi The fi token to distribute yield earnings for.
+    /// @param _cofi    The cofi token to lock.
+    /// @param _from    The account to lock for.
+    /// @param _amount  The amount of cofi tokens to lock.
+    function _lock(
+        address _cofi,
+        address _from,
+        uint256 _amount
+    ) internal {
+
+        ICOFIToken(_cofi).lock(_from, _amount);
+    }
+
+    function _unlock(
+        address _cofi,
+        address _from,
+        uint256 _amount
+    ) internal {
+
+        ICOFIToken(_cofi).unlock(_from, _amount);
+    }
+
+    /// @notice Function for updating cofi token supply relative to vault earnings.
+    ///
+    /// @param  _cofi The cofi token to distribute yield earnings for.
     function _poke(
-        address _fi
+        address _cofi
     )   internal
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        uint256 currentSupply = IERC20(_fi).totalSupply();
+        uint256 currentSupply = IERC20(_cofi).totalSupply();
         if (currentSupply == 0) {
-            emit TotalSupplyUpdated(_fi, 0, 0, 1e18, 0);
+            emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
             return (0, 0, 0); 
         }
         console.log('Harvesting');
         // Preemptively harvest if necessary for vault.
-        if (s.harvestable[s.vault[_fi]] == 1) LibVault._harvest(_fi);
+        if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(_cofi);
         console.log('Harvested');
-        assets = _toFiDecimals(_fi, LibVault._totalValue(s.vault[_fi]));
+        assets = _toCofiDecimals(_cofi, LibVault._totalValue(s.vault[_cofi]));
         console.log('assets: %s', assets);
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
 
-            shareYield = yield.percentMul(1e4 - s.serviceFee[_fi]);
+            shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
 
             _changeSupply(
-                _fi,
+                _cofi,
                 currentSupply + shareYield,
                 yield,
                 yield - shareYield
             );
             console.log('Rebased');
             if (yield - shareYield > 0)
-                _mint(_fi, s.feeCollector, yield - shareYield);
+                _mint(_cofi, s.feeCollector, yield - shareYield);
         } else {
             emit TotalSupplyUpdated(
-                _fi,
+                _cofi,
                 assets,
                 0,
-                _getRebasingCreditsPerToken(_fi),
+                _getRebasingCreditsPerToken(_cofi),
                 0
             );
             return (assets, 0, 0);
         }
     }
 
-    /// @notice Updates the total supply of the fi token.
+    /// @notice Updates the total supply of the cofi token.
     ///
     /// @dev    Will revert if the new supply < old supply.
     ///
-    /// @param _fi      The fi token to change supply for.
+    /// @param _cofi    The cofi token to change supply for.
     /// @param _amount  The new supply.
     /// @param _yield   The amount of yield accrued.
     /// @param _fee     The service fee captured.
     function _changeSupply(
-        address _fi,
+        address _cofi,
         uint256 _amount,
         uint256 _yield,
         uint256 _fee
     ) internal {
         
-        IFiToken(_fi).changeSupply(_amount);
+        ICOFIToken(_cofi).changeSupply(_amount);
         emit TotalSupplyUpdated(
-            _fi,
+            _cofi,
             _amount,
             _yield,
-            IFiToken(_fi).rebasingCreditsPerTokenHighres(),
+            ICOFIToken(_cofi).rebasingCreditsPerTokenHighres(),
             _fee
         );
     }
 
-    /// @notice Returns the rCPT for a given fi token.
+    // function _getToLock(
+    //     address _cofi,
+    //     uint256 _coOut
+    // ) internal view returns (uint256 toLock) {
+    //     AppStorage storage s = LibAppStorage.diamondStorage();
+
+    //     toLock = _coOut.percentMul(s.CR[_cofi]);
+    // }
+
+    /// @notice Returns the rCPT for a given cofi token.
     ///
-    /// @param _fi  The fi token to enquire for.
+    /// @param _cofi The cofi token to enquire for.
     function _getRebasingCreditsPerToken(
-        address _fi
+        address _cofi
     ) internal view returns (uint256) {
 
-        return IFiToken(_fi).rebasingCreditsPerTokenHighres();
+        return ICOFIToken(_cofi).rebasingCreditsPerTokenHighres();
     }
 
-    /// @notice Returns the mint fee for a given fi token.
+    /// @notice Returns the mint fee for a given cofi token.
     ///
-    /// @param  _fi     The fi token to mint.
-    /// @param  _amount The amount of fi tokens to mint.
+    /// @param  _cofi   The cofi token to mint.
+    /// @param  _amount The amount of cofi tokens to mint.
     function _getMintFee(
-        address _fi,
+        address _cofi,
         uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.percentMul(s.mintFee[_fi]);
+        return _amount.percentMul(s.mintFee[_cofi]);
     }
 
-    /// @notice Returns the redeem fee for a given fi token.
+    /// @notice Returns the redeem fee for a given cofi token.
     ///
-    /// @param  _fi     The fi token to redeem.
-    /// @param  _amount The amount of fi tokens to redeem
+    /// @param  _cofi   The cofi token to redeem.
+    /// @param  _amount The amount of cofi tokens to redeem
     function _getRedeemFee(
-        address _fi,
+        address _cofi,
         uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.percentMul(s.redeemFee[_fi]);
+        return _amount.percentMul(s.redeemFee[_cofi]);
     }
 
     /// @notice Opts contract into receiving rebases.
     ///
-    /// @param  _fi The fi token to opt-in to rebases for.
+    /// @param  _cofi The cofi token to opt-in to rebases for.
     function _rebaseOptIn(
-        address _fi
+        address _cofi
     ) internal {
 
-        IFiToken(_fi).rebaseOptIn();
+        ICOFIToken(_cofi).rebaseOptIn();
     }
 
     /// @notice Opts contract out of receiving rebases.
     ///
-    /// @param  _fi The fi token to opt-out of rebases for.
+    /// @param  _cofi The cofi token to opt-out of rebases for.
     function _rebaseOptOut(
-        address _fi
+        address _cofi
     ) internal {
         
-        IFiToken(_fi).rebaseOptOut();
+        ICOFIToken(_cofi).rebaseOptOut();
     }
 
     /// @notice Retrieves yield earned of fi for account.
     ///
     /// @param  _account    The account to enquire for.
-    /// @param  _fi         The fi token to check account's yield for.
+    /// @param  _cofi       The cofi token to check account's yield for.
     function _getYieldEarned(
         address _account,
-        address _fi
+        address _cofi
     ) internal view returns (uint256) {
         
-        return IFiToken(_fi).getYieldEarned(_account);
+        return ICOFIToken(_cofi).getYieldEarned(_account);
     }
 
     /// @notice Represents an underlying token decimals in fi decimals.
     ///
-    /// @param _fi      Retrieves the underlying decimals from mapping.
+    /// @param _cofi    Retrieves the underlying decimals from mapping.
     /// @param _amount  The amount of underlying to translate.
-    function _toFiDecimals(
-        address _fi,
+    function _toCofiDecimals(
+        address _cofi,
         uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(18, uint256(s.decimals[s.underlying[_fi]]));
+        return _amount.scaleBy(18, uint256(s.decimals[s.underlying[_cofi]]));
     }
 
-    /// @notice Represents a fi token in its underlying decimals.
+    /// @notice Represents a cofi token in its underlying decimals.
     ///
-    /// @param _fi      Retrieves the underlying decimals from mapping.
+    /// @param _cofi    Retrieves the underlying decimals from mapping.
     /// @param _amount  The amount of underlying to translate.
     function _toUnderlyingDecimals(
-        address _fi,
+        address _cofi,
         uint256 _amount
     ) internal view returns (uint256) {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(uint256(s.decimals[s.underlying[_fi]]), 18);
+        return _amount.scaleBy(uint256(s.decimals[s.underlying[_cofi]]), 18);
     }
 }

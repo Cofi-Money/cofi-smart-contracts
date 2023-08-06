@@ -17,7 +17,7 @@ import 'hardhat/console.sol';
 
     @author Sam Goodenough, The Stoa Corporation Ltd.
             (adapted from Origin Protocol Inc.)
-    @title  Fi Token Contract
+    @title  COFI Rebasing Token Contract
     @notice Rebasing ERC20 contract. Repurposed from OUSD.sol contract.
  */
 
@@ -27,7 +27,7 @@ import 'hardhat/console.sol';
  * rebasing design. Any integrations should be aware.
  */
 
-contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
+contract COFIRebasingToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     using SafeMath for uint256;
     using StableMath for uint256;
     using StableMath for int256;
@@ -43,6 +43,10 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         OptOut,
         OptIn
     }
+
+    /*//////////////////////////////////////////////////////////////
+                            DATA STORAGE
+    //////////////////////////////////////////////////////////////*/
 
     uint256 private constant MAX_SUPPLY = ~uint128(0); // (2^128) - 1
     uint256 private constant RESOLUTION_INCREASE = 1e9;
@@ -69,7 +73,10 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     uint8 paused;
 
     // Used to track the total amount of yield earned via rebases for accounts.
-    mapping(address => int256) yieldExcl;
+    mapping(address => int256) public yieldExcl;
+
+    // How much of the user's balance is non-transferable.
+    mapping(address => uint256) public locked;
 
     constructor(
         string memory _name,
@@ -79,8 +86,12 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
         _rebasingCreditsPerToken = 1e18;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                            TOKEN FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
     /**
-     * @return The total supply of fi token.
+     * @return The total supply of tokens.
      */
     function totalSupply() public view override returns (uint256) {
         return _totalSupply;
@@ -121,9 +132,18 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *          specified address.
      */
     function balanceOf(address _account) public view override returns (uint256) {
-        if (_creditBalances[_account] == 0) return 0;
-        return
+        return _creditBalances[_account] == 0 ?
+            0 :
             _creditBalances[_account].divPrecisely(_creditsPerToken(_account));
+    }
+
+    /**
+     * @notice Returns the transferable balance of an account.
+     */
+    function freeBalanceOf(address _account) public view returns (uint256) {
+        return balanceOf(_account).sub(locked[_account]) < 0 ?
+            0 :
+            balanceOf(_account).sub(locked[_account]);
     }
 
     /**
@@ -213,15 +233,42 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     }
 
     /**
+     * @notice  Redeem function, only callable from Diamond, to return tokens.
+     * @dev     Skips approval check.
+     * @param _from     The address to redeem tokens from.
+     * @param _to       The receiver of the tokens (usually the fee collector).
+     * @param _value    The amount of tokens to redeem.
+     * @return          True on success.
+     */
+    function redeem(
+        address _from,
+        address _to,
+        uint256 _value
+    ) external onlyApp returns (bool) {
+        // Ignore 'paused' check, as this is covered by 'redeemEnabled' in Diamond.
+
+        _executeTransfer(_from, _to, _value);
+
+        emit Transfer(_from, _to, _value);
+        return true;
+    }
+
+    /**
      * @param _from     The address you want to send tokens from.
      * @param _to       The address you want to transfer to.
-     * @param _value    Amount of fiAssets to transfer
+     * @param _value    Amount of tokens to transfer
      */
     function _executeTransfer(
         address _from,
         address _to,
         uint256 _value
     ) internal {
+        if (msg.sender != app) {
+            require(
+                _value <= balanceOf(_from).sub(locked[_from]),
+                'COFIRebasingToken: Transfer amount exceeds balance and amount locked'
+            );
+        }
         bool isNonRebasingTo = _isNonRebasingAccount(_to);
         bool isNonRebasingFrom = _isNonRebasingAccount(_from);
 
@@ -236,7 +283,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
 
         _creditBalances[_from] = _creditBalances[_from].sub(
             creditsDeducted,
-            'FiToken: Transfer amount exceeds balance'
+            'COFIRebasingToken: Transfer amount exceeds balance'
         );
         _creditBalances[_to] = _creditBalances[_to].add(creditsCredited);
 
@@ -334,11 +381,36 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     }
 
     /**
+     * @notice  Locks an amount of tokens at the holder's address. This is useful when collateralsing
+     *          a seperate token, for e.g.
+     */
+    function lock(
+        address _account,
+        uint256 _amount
+    ) external onlyApp returns (bool) {
+        require(_amount <= balanceOf(_account), 'COFIRebasingToken: Cannot lock more than balance');
+
+        locked[_account] = locked[_account].add(_amount);
+        return true;
+    }
+
+    function unlock(
+        address _account,
+        uint256 _amount
+    ) external onlyApp returns (bool) {
+
+        locked[_account] = _amount >= locked[_account] ?
+            0 :
+            locked[_account].sub(_amount);
+        return true;
+    }
+
+    /**
      * @dev Mints new tokens, increasing totalSupply.
      */
     function mint(address _account, uint256 _amount) external onlyApp {
         // Ignore 'paused' check, as this is covered by 'mintEnabled' in Diamond.
-        require(frozen[_account] == 0, 'FiToken: Recipient account is frozen');
+        require(frozen[_account] == 0, 'COFIRebasingToken: Recipient account is frozen');
         _mint(_account, _amount);
     }
 
@@ -347,7 +419,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      */
     function mintOptIn(address _account, uint256 _amount) external onlyApp {
         // Ignore 'paused' check, as this is covered by 'mintEnabled' in Diamond.
-        require(frozen[_account] == 0, 'FiToken: Recipient account is frozen');
+        require(frozen[_account] == 0, 'COFIRebasingToken: Recipient account is frozen');
         _mint(_account, _amount);
 
         if (_isNonRebasingAccount(_account)) {
@@ -366,14 +438,13 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * - `to` cannot be the zero address.
      */
     function _mint(address _account, uint256 _amount) internal override nonReentrant {
-        require(_account != address(0), 'FiToken: Mint to the zero address');
+        require(_account != address(0), 'COFIRebasingToken: Mint to the zero address');
 
         bool isNonRebasingAccount = _isNonRebasingAccount(_account);
 
         uint256 creditAmount = _amount.mulTruncate(_creditsPerToken(_account));
         _creditBalances[_account] = _creditBalances[_account].add(creditAmount);
 
-        console.log("uint _mint amount: %s int _mint amount: ", _amount);
         console.logInt(int256(_amount));
         yieldExcl[_account] -= int256(_amount); 
 
@@ -387,7 +458,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
 
         _totalSupply = _totalSupply.add(_amount);
 
-        require(_totalSupply < MAX_SUPPLY, 'FiToken: Max supply');
+        require(_totalSupply < MAX_SUPPLY, 'COFIRebasingToken: Max supply');
 
         emit Transfer(address(0), _account, _amount);
     }
@@ -397,12 +468,9 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      *      When an account burns tokens without redeeming, the amount burned is
      *      essentially redistributed to the remaining holders upon the next rebase.
      */
-    function burn(address account, uint256 amount) external {
-        if (msg.sender != app) {
-            require(account == msg.sender, 'FiToken: Caller not owner');
-        }
-        require(paused < 1, 'FiToken: Token paused');
-        _burn(account, amount);
+    function burn(address _account, uint256 _amount) external onlyApp {
+        require(paused == 0, 'COFIRebasingToken: Token paused');
+        _burn(_account, _amount);
     }
 
     /**
@@ -417,7 +485,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * - `_account` must have at least `_amount` tokens.
      */
     function _burn(address _account, uint256 _amount) internal override nonReentrant {
-        require(_account != address(0), 'FiToken: Burn from the zero address');
+        require(_account != address(0), 'COFIRebasingToken: Burn from the zero address');
         if (_amount == 0) {
             return;
         }
@@ -439,7 +507,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
                 creditAmount
             );
         } else {
-            revert('FiToken: Remove exceeds balance');
+            revert('COFIRebasingToken: Remove exceeds balance');
         }
 
         // Remove from the credit tallies and non-rebasing supply
@@ -511,10 +579,10 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * to upside and downside.
      */
     function rebaseOptIn() public nonReentrant {
-        require(rebaseLock[msg.sender] < 1, 'FiToken: Account locked out of rebases');
-        require(frozen[msg.sender] < 1, 'FiToken: Account is frozen');
-        require(paused < 1, 'FiToken: Token paused');
-        require(_isNonRebasingAccount(msg.sender), 'FiToken: Account has not opted out');
+        require(rebaseLock[msg.sender] == 0, 'COFIRebasingToken: Account locked out of rebases');
+        require(frozen[msg.sender] == 0, 'COFIRebasingToken: Account is frozen');
+        require(paused == 0, 'COFIRebasingToken: Token paused');
+        require(_isNonRebasingAccount(msg.sender), 'COFIRebasingToken: Account has not opted out');
 
         // Convert balance into the same amount at the current exchange rate
         uint256 newCreditBalance = _creditBalances[msg.sender]
@@ -543,7 +611,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      */
     function rebaseOptInExternal(address _account) public onlyAuthorized nonReentrant {
         /// @dev Leave out require statements above in case admin needs to override these.
-        require(_isNonRebasingAccount(_account), 'FiToken: Account has not opted out');
+        require(_isNonRebasingAccount(_account), 'COFIRebasingToken: Account has not opted out');
 
         // Convert balance into the same amount at the current exchange rate
         uint256 newCreditBalance = _creditBalances[_account]
@@ -569,7 +637,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @dev Explicitly mark that an address is non-rebasing.
      */
     function rebaseOptOut() public nonReentrant {
-        require(!_isNonRebasingAccount(msg.sender), 'FiToken: Account has not opted in');
+        require(!_isNonRebasingAccount(msg.sender), 'COFIRebasingToken: Account has not opted in');
 
         // Increase non rebasing supply
         nonRebasingSupply = nonRebasingSupply.add(balanceOf(msg.sender));
@@ -588,7 +656,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @dev Explicitly mark that an address is non-rebasing.
      */
     function rebaseOptOutExternal(address _account) public onlyAuthorized nonReentrant {
-        require(!_isNonRebasingAccount(_account), 'FiToken: Account has not opted in');
+        require(!_isNonRebasingAccount(_account), 'COFIRebasingToken: Account has not opted in');
 
         // Increase non rebasing supply
         nonRebasingSupply = nonRebasingSupply.add(balanceOf(_account));
@@ -605,11 +673,11 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
 
     /**
      * @dev Modify the supply without minting new tokens. This uses a change in
-     *      the exchange rate between "credits" and fi tokens to change balances.
-     * @param _newTotalSupply New total supply of fi token.
+     *      the exchange rate between "credits" and tokens to change balances.
+     * @param _newTotalSupply New total supply of tokens.
      */
     function changeSupply(uint256 _newTotalSupply) external onlyApp nonReentrant {
-        require(_totalSupply > 0, 'FiToken: Cannot increase 0 supply');
+        require(_totalSupply > 0, 'COFIRebasingToken: Cannot increase 0 supply');
 
         if (_totalSupply == _newTotalSupply) {
             emit TotalSupplyUpdatedHighres(
@@ -627,7 +695,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
             _totalSupply.sub(nonRebasingSupply)
         );
 
-        require(_rebasingCreditsPerToken > 0, 'FiToken: Invalid change in supply');
+        require(_rebasingCreditsPerToken > 0, 'COFIRebasingToken: Invalid change in supply');
 
         _totalSupply = _rebasingCredits
             .divPrecisely(_rebasingCreditsPerToken)
@@ -712,7 +780,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
     ) external onlyAuthorized returns (bool) {
         require(
             _isNonRebasingAccount(_account),
-            'FiToken: Account must be opted out before freezing'
+            'COFIRebasingToken: Account must be opted out before freezing'
         );
         frozen[_account] = _enabled;
 
@@ -748,7 +816,7 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @dev Verifies that the caller is the Diamond (app) contract.
      */
     modifier onlyApp() {
-        require(app == msg.sender, 'FiToken: Caller is not Diamond');
+        require(app == msg.sender, 'COFIRebasingToken: Caller is not Diamond');
         _;
     }
 
@@ -757,8 +825,8 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      */
     modifier onlyAuthorized() {
         require(
-            admin[msg.sender] > 1 || msg.sender == owner(),
-            'FiToken: Caller is not authorized'
+            admin[msg.sender] == 1 || msg.sender == owner(),
+            'COFIRebasingToken: Caller is not authorized'
         );
         _;
     }
@@ -767,11 +835,11 @@ contract FiToken is ERC20Permit, ReentrancyGuard, Ownable2Step {
      * @dev Verifies that the transfer is valid by running checks.
      */
     modifier isValidTransfer(uint256 _value, address _from, address _to) {
-        require(_to != address(0), 'FiToken: Transfer to zero address');
-        require(paused < 1, 'FiToken: Token paused');
-        require(_value <= balanceOf(_from), 'FiToken: Transfer greater than balance');
-        require(frozen[_from] < 1, 'FiToken: Sender account is frozen');
-        require(frozen[_to] < 1, 'FiToken: Recipient account is frozen');
+        require(_to != address(0), 'COFIRebasingToken: Transfer to zero address');
+        require(paused == 0, 'COFIRebasingToken: Token paused');
+        require(_value <= balanceOf(_from), 'COFIRebasingToken: Transfer greater than balance');
+        require(frozen[_from] == 0, 'COFIRebasingToken: Sender account is frozen');
+        require(frozen[_to] == 0, 'COFIRebasingToken: Recipient account is frozen');
         _;
     }
 }

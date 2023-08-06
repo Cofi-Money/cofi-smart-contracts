@@ -25,20 +25,20 @@ contract YieldFacet is Modifiers {
                             YIELD DISTRIBUTION
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Function for updating fi token supply relative to vault earnings.
+    /// @notice Function for updating cofi token supply relative to vault earnings.
     ///
-    /// @param  _fi The fi token to distribute yield earnings for.
+    /// @param  _cofi The cofi token to distribute yield earnings for.
     function rebase(
-        address _fi
+        address _cofi
     )   external
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
-        if (s.rebasePublic[_fi] == 0)
+        if (s.rebasePublic[_cofi] == 0)
             require(
                 s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
                 'YieldFacet: Caller not Upkeep or Admin'
             );
-        return LibToken._poke(_fi);
+        return LibToken._poke(_cofi);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -51,31 +51,31 @@ contract YieldFacet is Modifiers {
     /// @dev    Ensure that a buffer of the underlying token resides in the Diamond
     ///         beforehand to account for slippage.
     ///
-    /// @param  _fi         The fi token to migrate vault backing for.
+    /// @param  _cofi       The cofi token to migrate vault backing for.
     /// @param  _newVault   The vault to migrate to (must adhere to ERC4626).
     function migrate(
-        address _fi,
+        address _cofi,
         address _newVault
     )   external
         returns (bool)
     {
         // Pull funds from old vault.
-        uint256 assets = IERC4626(s.vault[_fi]).redeem(
-            IERC20(s.vault[_fi]).balanceOf(address(this)),
+        uint256 assets = IERC4626(s.vault[_cofi]).redeem(
+            IERC20(s.vault[_cofi]).balanceOf(address(this)),
             address(this),
             address(this)
         );
 
         // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[_fi]).asset()),
+            IERC20(IERC4626(s.vault[_cofi]).asset()),
             _newVault,
-            assets + s.buffer[_fi]
+            assets + s.buffer[_cofi]
         );
 
         // Deploy funds to new vault.
         LibVault._wrap(
-            assets + s.buffer[_fi],
+            assets + s.buffer[_cofi],
             _newVault,
             address(this)
         );
@@ -86,16 +86,16 @@ contract YieldFacet is Modifiers {
             'YieldFacet: Vault migration slippage exceeded'
         );
         emit LibVault.VaultMigration(
-            _fi,
-            s.vault[_fi],
+            _cofi,
+            s.vault[_cofi],
             _newVault,
             assets,
             LibVault._totalValue(_newVault)
         );
 
-        s.vault[_fi] = _newVault; // Update vault for fi token.
+        s.vault[_cofi] = _newVault; // Update vault for cofi token.
 
-        LibToken._poke(_fi); // Sync fi token supply to assets in vault.
+        LibToken._poke(_cofi); // Sync cofi token supply to assets in vault.
 
         return true;
     }
@@ -110,63 +110,63 @@ contract YieldFacet is Modifiers {
     ///         greater than the previous supply. Because withdrawals may incur slippage,
     ///         therefore, need to overcome this.
     function setBuffer(
-        address _fi,
+        address _cofi,
         uint256 _buffer
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.buffer[_fi] = _buffer;
+        s.buffer[_cofi] = _buffer;
         return true;
     }
 
-    /// @dev Only for setting up a new fi token. 'migrateVault()' must be used otherwise.
+    /// @dev Only for setting up a new cofi token. 'migrateVault()' must be used otherwise.
     function setVault(
-        address _fi,
+        address _cofi,
         address _vault
     )   external
         onlyAdmin
         returns (bool)
     {
         require(
-            s.vault[_fi] == address(0),
-            'YieldFacet: Fi token must not already link with a vault'
+            s.vault[_cofi] == address(0),
+            'YieldFacet: cofi token must not already link with a vault'
         );
-        s.vault[_fi] = _vault;
+        s.vault[_cofi] = _vault;
         return true;
     }
 
     function setRebasePublic(
-        address _fi,
+        address _cofi,
         uint8   _enabled
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.rebasePublic[_fi] = _enabled;
+        s.rebasePublic[_cofi] = _enabled;
         return true;
     }
 
-    /// @notice Opts the diamond into receiving yield on holding of fi tokens (which fees
+    /// @notice Opts the diamond into receiving yield on holding of cofi tokens (which fees
     ///         are captured in). Note that the feeCollector is a separate contract.
     ///         By default, elect to not activate (thereby passing on yield to holders).
     function rebaseOptIn(
-        address _fi
+        address _cofi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptIn(_fi);
+        LibToken._rebaseOptIn(_cofi);
         return true;
     }
 
     function rebaseOptOut(
-        address _fi
+        address _cofi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptOut(_fi);
+        LibToken._rebaseOptOut(_cofi);
         return true;
     }
 
@@ -175,11 +175,11 @@ contract YieldFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     function getBuffer(
-        address _fi
+        address _cofi
     )   external
         view
         returns (uint256)
     {
-        return s.buffer[_fi];
+        return s.buffer[_cofi];
     }
 }

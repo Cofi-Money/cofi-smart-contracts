@@ -5,7 +5,7 @@ import '@openzeppelin/contracts/token/ERC20/ERC20.sol';
 
 interface ICOFIMoney {
 
-    function getPoints(address _account, address[] memory _fi) external view returns (uint256 pointsTotal);
+    function getPoints(address _account, address[] memory _cofi) external view returns (uint256 pointsTotal);
 }
 
 /**
@@ -25,15 +25,15 @@ contract PointToken is ERC20 {
         string memory       _name,
         string memory       _symbol,
         address             _app,
-        address[] memory    _fi
+        address[] memory    _cofi
     ) ERC20(_name, _symbol) { 
         app = _app;
-        fi  = _fi;
+        cofi  = _cofi;
         admin[msg.sender] = 1;
     }
 
     address     app;
-    address[]   fi;
+    address[]   cofi;
 
     mapping(address => uint8) admin;
 
@@ -43,11 +43,11 @@ contract PointToken is ERC20 {
      */
 
     function balanceOf(address _account) public view override returns (uint256) {
-        return ICOFIMoney(app).getPoints(_account, fi);
+        return ICOFIMoney(app).getPoints(_account, cofi);
     }
 
-    function setFi(address[] memory _fi) external isAdmin {
-        fi = _fi;
+    function setCofi(address[] memory _cofi) external isAdmin {
+        cofi = _cofi;
     }
 
     function setApp(address _app) external isAdmin {

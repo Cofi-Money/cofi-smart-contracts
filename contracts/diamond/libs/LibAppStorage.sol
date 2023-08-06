@@ -14,50 +14,63 @@ struct RewardStatus {
     uint8   referDisabled;
 }
 
+// enum LoanStatus {
+//     NonExistent,
+//     Active,
+//     Repaid
+// }
+
+// struct LoanParams {
+//     uint256 fiLocked;
+//     uint256 coIssued;
+//     uint256 maxDuration;
+//     LoanStatus status;
+// }
+
 struct AppStorage {
 
     /*//////////////////////////////////////////////////////////////
                         COFI STABLECOIN PARAMS
     //////////////////////////////////////////////////////////////*/
 
-    // E.g., fiUSD => (20*10**18) - 1. Applies to underlying token (e.g., USDC).
+    // E.g., coUSD => (20*10**18) - 1. Applies to underlying token (e.g., USDC).
     mapping(address => uint256) minDeposit;
 
-    // E.g., fiUSD => 20*10**18. Applies to underlyingAsset (e.g., DAI).
+    // E.g., coUSD => 20*10**18. Applies to underlyingAsset (e.g., DAI).
     mapping(address => uint256) minWithdraw;
 
-    // E.g., fiUSD => 10bps. Applies to fi tokens only.
+    // E.g., coUSD => 10bps. Applies to cofi tokens only.
     mapping(address => uint256) mintFee;
 
-    // E.g., fiUSD => 10bps. Applies to fi tokens only.
+    // E.g., coUSD => 10bps. Applies to cofi tokens only.
     mapping(address => uint256) redeemFee;
 
-    // E.g., fiUSD => 1,000bps. Applies to fi tokens only.
+    // E.g., coUSD => 1,000bps. Applies to cofi tokens only.
     mapping(address => uint256) serviceFee;
 
-    // E.g., fiUSD => 1,000,000bps (100x / 1*10**18 yield earned).
+    // E.g., coUSD => 1,000,000bps (100x / 1*10**18 yield earned).
     mapping(address => uint256) pointsRate;
 
-    // E.g., fiUSD => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
+    // E.g., coUSD => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
     mapping(address => uint256) buffer;
 
-    // E.g., fiUSD => yvDAI; fiETH => maETH; fiBTC => maBTC.
+    // E.g., coUSD => yvDAI; fiETH => maETH; fiBTC => maBTC.
     mapping(address => address) vault;
 
-    // E.g., fiUSD => USDC; ETHFI => wETH; BTCFI => wBTC.
+    // E.g., coUSD => USDC; ETHFI => wETH; BTCFI => wBTC.
     // Need to specify as vault may use different underlying (e.g., USDC-LP).
     mapping(address => address) underlying;
 
-    // E.g., fiUSD => 1.
+    // E.g., coUSD => 1.
     mapping(address => uint8)   mintEnabled;
 
-    // E.g., fiUSD => 1.
+    // E.g., coUSD => 1.
     mapping(address => uint8)   redeemEnabled;
 
     // Decimals of the underlying asset (e.g., USDC => 6).
     mapping(address => uint8)   decimals;
 
-    // E.g., fiUSD => 0.
+    // E.g., coUSD => 0.
     mapping(address => uint8)   rebasePublic;
 
     // If rebase operation should harvest vault beforehand.
@@ -75,11 +88,11 @@ struct AppStorage {
 
     mapping(address => RewardStatus) rewardStatus;
 
-    // Yield points capture (determined via yield earnings from fi tokens).
-    // E.g., 0x1234... => fiUSD => YieldPointsCapture.
+    // Yield points capture (determined via yield earnings from cofi tokens).
+    // E.g., Alice => coUSD => YieldPointsCapture.
     mapping(address => mapping(address => YieldPointsCapture)) YPC;
 
-    // External points capture (to yield earnings). Maps to account only (not fi tokens).
+    // External points capture (to yield earnings). Maps to account only (not cofi tokens).
     mapping(address => uint256) XPC;
 
     /*//////////////////////////////////////////////////////////////
@@ -102,6 +115,21 @@ struct AppStorage {
     address backupOwner;
 
     uint8 reentrantStatus;
+
+    /*//////////////////////////////////////////////////////////////
+                            LOAN PARAMS
+    //////////////////////////////////////////////////////////////*/
+
+    // mapping(address => uint256) maxDuration;
+
+    // mapping(address => uint256) minBorrow;
+
+    // mapping(address => uint256) CR;
+
+    // mapping(address => uint8)   loanEnabled;
+
+    // // E.g., Alice => coUSD => loanParams;
+    // mapping(address => mapping(address => LoanParams[])) loanParams;
 }
 
 library LibAppStorage {
@@ -128,7 +156,7 @@ contract Modifiers {
     modifier minDeposit(uint256 _amount, address _fi) {
         require(
             _amount > s.minDeposit[_fi],
-            'Insufficient deposit amount for fi token'
+            'Insufficient deposit amount for cofi token'
         );
         _;
     }
@@ -136,18 +164,36 @@ contract Modifiers {
     modifier minWithdraw(uint256 _amount, address _fi) {
         require(
             _amount > s.minWithdraw[_fi],
-            'Insufficient withdraw amount for fi token'
+            'Insufficient withdraw amount for cofi token'
         );
         _;
     }
 
+    // modifier minBorrow(uint256 _amount, address _fi) {
+    //     require(
+    //         _amount > s.minBorrow[_fi],
+    //         'Insufficient borrow amount for cofi token'
+    //     );
+    //     _;
+    // }
+
     modifier mintEnabled(address _fi) {
-        require(s.mintEnabled[_fi] == 1, 'Mint not enabled for fi token');
+        require(s.mintEnabled[_fi] == 1, 'Mint not enabled for cofi token');
         _;
     }
 
     modifier redeemEnabled(address _fi) {
-        require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for fi token');
+        require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for cofi token');
+        _;
+    }
+
+    // modifier loanEnabled(address _fi) {
+    //     require(s.loanEnabled[_fi] == 1, 'Loan not enabled for cofi token');
+    //     _;
+    // }
+
+    modifier onlyOwner() {
+        require(s.owner == msg.sender || s.backupOwner == msg.sender, 'Caller not owner');
         _;
     }
     
