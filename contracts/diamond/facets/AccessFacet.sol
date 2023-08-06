@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Modifiers } from "../libs/LibAppStorage.sol";
+import { Modifiers } from '../libs/LibAppStorage.sol';
 import { LibToken } from '../libs/LibToken.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 
@@ -37,8 +37,10 @@ contract AccessFacet is Modifiers {
         address _cofi,
         address _account,
         uint256 _amount
-    ) external onlyAdmin returns (bool) {
-
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
         LibToken._lock(_cofi, _account, _amount);
         return true;
     }
@@ -47,8 +49,10 @@ contract AccessFacet is Modifiers {
         address _cofi,
         address _account,
         uint256 _amount
-    ) external onlyAdmin returns (bool) {
-
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
         LibToken._unlock(_cofi, _account, _amount);
         return true;
     }
@@ -77,7 +81,7 @@ contract AccessFacet is Modifiers {
     {
         require(
             _account != s.owner || _account != s.backupOwner,
-            "AccessFacet: Owners must retain admin status"
+            'AccessFacet: Owners must retain admin status'
         );
 
         s.isAdmin[_account] = _enabled;

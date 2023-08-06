@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.19;
 
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
-import { FixedPointMathLib } from "solmate/src/utils/FixedPointMathLib.sol";
-import { PercentageMath } from "./libs/PercentageMath.sol";
-import { StableMath } from "./libs/StableMath.sol";
-import { LibCompound } from "./libs/LibCompound.sol";
-import { ICERC20 } from "./interfaces/ICERC20.sol";
-import { IComptroller } from "./interfaces/IComptroller.sol";
-import { ISwapRouter } from "./interfaces/ISwapRouter.sol";
-import { DexSwap } from "./utils/swapUtils.sol";
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "hardhat/console.sol";
+import { ERC20 } from 'solmate/src/tokens/ERC20.sol';
+import { ERC4626 } from 'solmate/src/mixins/ERC4626.sol';
+import { SafeTransferLib } from 'solmate/src/utils/SafeTransferLib.sol';
+import { FixedPointMathLib } from 'solmate/src/utils/FixedPointMathLib.sol';
+import { PercentageMath } from './libs/PercentageMath.sol';
+import { StableMath } from './libs/StableMath.sol';
+import { LibCompound } from './libs/LibCompound.sol';
+import { ICERC20 } from './interfaces/ICERC20.sol';
+import { IComptroller } from './interfaces/IComptroller.sol';
+import { ISwapRouter } from './interfaces/ISwapRouter.sol';
+import { DexSwap } from './utils/swapUtils.sol';
+import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
+import '@openzeppelin/contracts/access/Ownable2Step.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
 /**
 
@@ -40,9 +39,9 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     using LibCompound for ICERC20;
     using SafeTransferLib for ERC20;
     using FixedPointMathLib for uint256;
-    using PercentageMath for uint;
-    using StableMath for uint;
-    using StableMath for int;
+    using PercentageMath for uint256;
+    using StableMath for uint256;
+    using StableMath for int256;
 
     /*//////////////////////////////////////////////////////////////
                                 ERRORS
@@ -159,7 +158,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
                             REWARDS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Updates value of "exchangeRateStored()"
+    /// @dev Updates value of 'exchangeRateStored()'
     function accrueInterest() public onlyAuthorizedOrAdmin {
         cToken.accrueInterest();
     }
@@ -195,13 +194,9 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /// @dev Harvest operation accrues interest.
     function harvest() external onlyAuthorizedOrAdmin returns (uint256 deposited) {
-        if (swapParams.enabled > 0) {
-            console.log("Attempting to harvest with swap");
-            return harvestWithSwap();
-        } else {
-            console.log("Attempting to harvest without swap");
-            return flush();
-        }
+        return swapParams.enabled == 1 ?
+            harvestWithSwap() :
+            flush();
     }
 
     /// @notice Claims liquidity mining rewards from Compound and performs low-lvl swap
@@ -224,8 +219,6 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
             .percentMul(1e4 - swapParams.slippage)
             .scaleBy(asset.decimals(), reward.decimals());
 
-        console.log("amountOutMin: %s", amountOutMin);
-
         uint256 earned = ERC20(reward).balanceOf(address(this));
 
         // Swap rewards for want.
@@ -237,10 +230,9 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
                 amountIn: earned,
                 amountOutMinimum: amountOutMin // [want].
             });
-
         // Executes the swap.
         uint256 amountOut = swapRouter.exactInput(params);
-        console.log("amountOut: %s", amountOut);
+
         if (amountOut < amountOutMin) {
             revert MIN_AMOUNT_ERROR();
         }
@@ -258,24 +250,21 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /// @return answer with 8 decimals
     function getLatestPrice() public view returns (uint256 answer) {
-        (, int _answer, , , ) = rewardPriceFeed.latestRoundData();
+        (uint80 _roundID, int256 _answer, , uint256 _timestamp, uint80 _answeredInRound)
+            = rewardPriceFeed.latestRoundData();
 
-        console.logInt(_answer);
+        require(_answeredInRound >= _roundID, 'CompoundV2ERC4626Reinvest: Stale price');
+        require(_timestamp != 0,'CompoundV2ERC4626Reinvest: Round not complete');
+        require(_answer > 0,'CompoundV2ERC4626Reinvest: Chainlink answer reporting 0');
 
         answer = _answer.abs();
-
-        console.log("Reward asset price ($): %s", answer);
 
         // I.e., if the want asset is not tied to USD (e.g., wETH).
         if (address(wantPriceFeed) != address(0)) {
             (, _answer, , , ) = wantPriceFeed.latestRoundData();
 
-            console.logInt(_answer);
-
             // Scales to 18 but need to return answer in 8 decimals.
             answer = answer.divPrecisely(_answer.abs()).scaleBy(8, 18);
-
-            console.log("Reward asset price (want): %s", answer);
         }
     }
 
@@ -361,7 +350,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     {
         require(
             _account != owner(),
-            "CompoundV2ERC4626Wrapper: Cannot remove admin status of Owner"
+            'CompounCompoundV2ERC4626Reinvest: Cannot remove admin status of Owner'
         );
         admin[_account] = _enabled;
         return true;
@@ -399,9 +388,8 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     )   public override nonReentrant onlyAuthorized
         returns (uint256 shares)
     {
-        console.log("Entering deposit");
         // Check for rounding error since we round down in previewDeposit.
-        require((shares = previewDeposit(_assets)) != 0, "ZERO_SHARES");
+        require((shares = previewDeposit(_assets)) != 0, 'ZERO_SHARES');
 
         // Need to transfer before minting or ERC777s could reenter.
         asset.safeTransferFrom(msg.sender, address(this), _assets);
@@ -471,7 +459,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         }
 
         // Check for rounding error since we round down in previewRedeem.
-        require((assets = previewRedeem(_shares)) != 0, "ZERO_ASSETS");
+        require((assets = previewRedeem(_shares)) != 0, 'ZERO_ASSETS');
 
         beforeWithdraw(assets, _shares);
 
@@ -482,9 +470,9 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         asset.safeTransfer(_receiver, assets);
     }
 
-    /// @dev    May be slightly out of date as relies on "exchangeRateStored()"
+    /// @dev    May be slightly out of date as relies on 'exchangeRateStored()'
     //          (so as to not break ERC4626-compatibility). Can be mitigated by
-    ///         calling "accrueInterest()" immediately prior.
+    ///         calling 'accrueInterest()' immediately prior.
     function totalAssets() public view virtual override returns (uint256) {
         return cToken.viewUnderlyingBalanceOf(address(this));
     }
@@ -553,7 +541,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     )   internal view virtual
         returns (string memory vaultName)
     {
-        vaultName = string.concat("COFI Wrapped ", _asset.symbol());
+        vaultName = string.concat('COFI Wrapped ', _asset.symbol());
     }
 
     function _vaultSymbol(
@@ -561,7 +549,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     )   internal view virtual
         returns (string memory vaultSymbol)
     {
-        vaultSymbol = string.concat("cw", _asset.symbol());
+        vaultSymbol = string.concat('cw', _asset.symbol());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -570,7 +558,6 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     modifier onlyAdmin() {
         if (msg.sender != owner() || admin[msg.sender] < 1) {
-            console.log("Not admin");
             revert NOT_ADMIN();
         }
         _;
@@ -578,9 +565,8 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /// @dev Add to prevent state change outside of app context.
     modifier onlyAuthorized() {
-        if (authorizedEnabled > 0) {
-            if (authorized[msg.sender] < 1) {
-                console.log("Not authorized");
+        if (authorizedEnabled == 1) {
+            if (authorized[msg.sender] == 0) {
                 revert NOT_AUTHORIZED();
             }
         }
@@ -590,14 +576,12 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     modifier onlyAuthorizedOrAdmin() {
         if (msg.sender != owner() || admin[msg.sender] < 1) {
             // If not admin, check if authorized
-            if (authorizedEnabled > 0) {
-                if (authorized[msg.sender] < 1) {
-                    console.log("Not authorized");
+            if (authorizedEnabled == 1) {
+                if (authorized[msg.sender] == 0) {
                     revert NOT_AUTHORIZED();
                 }
             }
             else {
-                console.log("Not admin");
                 revert NOT_ADMIN();
             }
         }

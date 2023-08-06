@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { AppStorage } from './libs/LibAppStorage.sol';
 import { LibDiamond } from './core/libs/LibDiamond.sol';
-import { LibToken } from './libs/LibToken.sol';
 import { IERC165 } from './core/interfaces/IERC165.sol';
 import { IDiamondCut } from './core/interfaces/IDiamondCut.sol';
 import { IDiamondLoupe } from './core/interfaces/IDiamondLoupe.sol';
 import { IERC173 } from './core/interfaces/IERC173.sol';
-import { IERC20 } from '@openzeppelin/contracts/interfaces/IERC20.sol';
+import { AppStorage } from './libs/LibAppStorage.sol';
+import { LibToken } from './libs/LibToken.sol';
 
 contract InitDiamond {
     AppStorage internal s;

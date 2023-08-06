@@ -7,7 +7,6 @@ import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import { ICOFIToken } from '.././interfaces/ICOFIToken.sol';
 import 'contracts/token/utils/StableMath.sol';
-import 'hardhat/console.sol';
 
 library LibToken {
     using PercentageMath for uint256;
@@ -113,7 +112,6 @@ library LibToken {
     ) internal {
 
         ICOFIToken(_cofi).mint(_to, _amount);
-        console.log('LibToken minted');
         emit Mint(_cofi, _amount, _to);
     }
 
@@ -198,12 +196,11 @@ library LibToken {
             emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
             return (0, 0, 0); 
         }
-        console.log('Harvesting');
         // Preemptively harvest if necessary for vault.
         if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(_cofi);
-        console.log('Harvested');
+
         assets = _toCofiDecimals(_cofi, LibVault._totalValue(s.vault[_cofi]));
-        console.log('assets: %s', assets);
+
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
@@ -216,7 +213,6 @@ library LibToken {
                 yield,
                 yield - shareYield
             );
-            console.log('Rebased');
             if (yield - shareYield > 0)
                 _mint(_cofi, s.feeCollector, yield - shareYield);
         } else {

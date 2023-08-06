@@ -14,7 +14,6 @@ import { StableMath } from './libs/StableMath.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
-import 'hardhat/console.sol';
 
 /**
 
@@ -149,12 +148,9 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
     //////////////////////////////////////////////////////////////*/
 
     function harvest() public onlyAuthorized returns (uint256 deposited) {
-        if (swapParams.enabled == 1) {
-            return harvestWithSwap();
-        } else {
-            // Otherwise skip swap operation.
-            return flush();
-        }
+        return swapParams.enabled == 1 ?
+            harvestWithSwap() :
+            flush();
     }
 
     function harvestWithSwap() internal returns (uint256 deposited) {
@@ -178,7 +174,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
 
         /// @dev Can trigger harvest by transferring OP.
         if (rewardAssets > swapParams.amountInMin) {
-            console.log('Trigger swap');
             // Swap for want
             swapExactInputSingle(rewardAssets);
         }
@@ -202,8 +197,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
             .percentMul(1e4 - swapParams.slippage)
             .scaleBy(decimals(), yVaultReward.decimals());
 
-        console.log('amountOutMin: %s', amountOutMin);
-
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
             .ExactInputSingleParams({
                 tokenIn: tokenIn,
@@ -217,30 +210,25 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
             });
 
         amountOut = swapRouter.exactInputSingle(params);
-
-        console.log('amountOut: %s', amountOut);
     }
 
     /// @return answer with 8 decimals
     function getLatestPrice() public view returns (uint256 answer) {
-        (, int256 _answer, , , ) = rewardPriceFeed.latestRoundData();
+        (uint80 _roundID, int256 _answer, , uint256 _timestamp, uint80 _answeredInRound)
+            = rewardPriceFeed.latestRoundData();
 
-        console.logInt(_answer);
+        require(_answeredInRound >= _roundID, 'YearnV2ERC4626Reinvest: Stale price');
+        require(_timestamp != 0,'YearnV2ERC4626Reinvest: Round not complete');
+        require(_answer > 0,'YearnV2ERC4626Reinvest: Chainlink answer reporting 0');
 
         answer = _answer.abs();
-
-        console.log('Reward asset price ($): %s', answer);
 
         // I.e., if the want asset is not tied to USD (e.g., wETH).
         if (address(wantPriceFeed) != address(0)) {
             (, _answer, , , ) = wantPriceFeed.latestRoundData();
 
-            console.logInt(_answer);
-
-            // Scales to 18 but need to return answer in 8 decimals
+            // Scales to 18 but need to return answer in 8 decimals.
             answer = answer.divPrecisely(_answer.abs()).scaleBy(8, 18);
-
-            console.log('Reward asset price (want): %s', answer);
         }
     }
 
@@ -269,7 +257,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
     /// @dev    Need to mint reward shares to receiver (in COFI's conetxt, the diamond contract).
     ///         This ensures yield from rewards is reflected in the rebasing token rather than shares.
     function flush() public onlyAdmin returns (uint256 deposited) {
-        console.log('Flushing: %s', IERC20(asset()).balanceOf(address(this)));
         (deposited, ) = _doRewardDeposit(
             IERC20(asset()).balanceOf(address(this)), rewardShareReceiver
         );
@@ -410,7 +397,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         if (_assets < MIN_DEPOSIT) {
             revert MinimumDepositNotMet();
         }
-        console.log('deposit assets: %s', _assets);
         (_assets, shares) = _deposit(_assets, _receiver, msg.sender);
 
         emit Deposit(msg.sender, _receiver, _assets, shares);
@@ -501,7 +487,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         IERC20 _token = IERC20(asset());
 
         if (_amount == type(uint256).max) {
-            console.log('Entering _deposit if');
             _amount = Math.min(
                 _token.balanceOf(_depositor),
                 _token.allowance(_depositor, address(this))
@@ -515,7 +500,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         uint256 beforeBal = _token.balanceOf(address(this));
 
         mintedShares = stakingRewardsZap.zapIn(address(yVault), _amount);
-        console.log('mintedShares: %s', mintedShares);
 
         uint256 afterBal = _token.balanceOf(address(this));
         deposited = beforeBal - afterBal;
@@ -648,7 +632,6 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
             // Shares held in staking contract
             stakingRewards.balanceOf(address(this)) // Issue
         );
-        console.log('local assets: %s', localAssets);
 
         return supply == 0 ? _shares : _shares.mulDivDown(localAssets, supply);
     }

@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import { ERC20 } from "solmate/src/tokens/ERC20.sol";
-import { ERC4626 } from "solmate/src/mixins/ERC4626.sol";
-import { SafeTransferLib } from "solmate/src/utils/SafeTransferLib.sol";
-import { IPool } from "contracts/diamond/interfaces/aave/IPool.sol";
-import { IRewardsController } from "contracts/diamond/interfaces/aave/IRewardsController.sol";
-import { DexSwap } from "./utils/swapUtils.sol";
-import "@openzeppelin/contracts/access/Ownable2Step.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { ERC20 } from 'solmate/src/tokens/ERC20.sol';
+import { ERC4626 } from 'solmate/src/mixins/ERC4626.sol';
+import { SafeTransferLib } from 'solmate/src/utils/SafeTransferLib.sol';
+import { IPool } from 'contracts/diamond/interfaces/aave/IPool.sol';
+import { IRewardsController } from 'contracts/diamond/interfaces/aave/IRewardsController.sol';
+import { DexSwap } from './utils/swapUtils.sol';
+import '@openzeppelin/contracts/access/Ownable2Step.sol';
+import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
 /// @title AaveV3ERC4626Reinvest
 /// @notice Extended implementation of yield-daddy's ERC4626 for Aave V3 with rewards reinvesting
@@ -271,7 +271,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     ) external onlyOwner returns (bool) {
         require(
             authorized[recipient] == 1,
-            "AaveV3ERC4626Reinvest: Recipient not authorized"
+            'AaveV3ERC4626Reinvest: Recipient not authorized'
         );
 
         IERC20(token).transfer(recipient, amount);
@@ -284,7 +284,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     ) external onlyOwner returns (bool) {
         require(
             account != owner(),
-            "AaveV3ERC4626Reinvest: Cannot remove authorisation of Owner"
+            'AaveV3ERC4626Reinvest: Cannot remove authorisation of Owner'
         );
         authorized[account] == 0
             ? authorized[account] = 1
@@ -301,7 +301,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         address receiver
     ) public virtual override onlyAuthorized returns (uint256 shares) {
         // Check for rounding error since we round down in previewDeposit.
-        require((shares = previewDeposit(assets)) != 0, "ZERO_SHARES");
+        require((shares = previewDeposit(assets)) != 0, 'ZERO_SHARES');
 
         // Need to transfer before minting or ERC777s could reenter.
         asset.safeTransferFrom(msg.sender, address(this), assets);
@@ -499,13 +499,13 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     function _vaultName(
         ERC20 asset_
     ) internal view virtual returns (string memory vaultName) {
-        vaultName = string.concat("ERC4626-Wrapped Aave v3 ", asset_.symbol());
+        vaultName = string.concat('ERC4626-Wrapped Aave v3 ', asset_.symbol());
     }
 
     function _vaultSymbol(
         ERC20 asset_
     ) internal view virtual returns (string memory vaultSymbol) {
-        vaultSymbol = string.concat("wa", asset_.symbol());
+        vaultSymbol = string.concat('wa', asset_.symbol());
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -541,7 +541,7 @@ contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
             msg.sender == owner() ||
                 msg.sender == manager ||
                 authorized[msg.sender] == 1,
-            "AaveV3ERC4626Reinvest: Only authorized"
+            'AaveV3ERC4626Reinvest: Only authorized'
         );
         _;
     }

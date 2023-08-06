@@ -7,7 +7,6 @@ import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import 'hardhat/console.sol';
 
 /**
 
@@ -62,7 +61,7 @@ contract SupplyFacet is Modifiers {
             s.vault[_cofi],
             _underlyingIn
         );
-        console.log('Approved');
+
         uint256 assets = LibToken._toCofiDecimals(
             _cofi,
             LibVault._getAssets(
@@ -74,7 +73,7 @@ contract SupplyFacet is Modifiers {
                 s.vault[_cofi]
             )
         );
-        console.log('Wrapped');
+
         require(assets >= _cofiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_cofi, assets);
@@ -82,18 +81,17 @@ contract SupplyFacet is Modifiers {
 
         // Capture mint fee in cofi tokens.
         if (fee > 0) {
-            console.log('Capturing mint fee');
             LibToken._mint(_cofi, s.feeCollector, fee);
         }
-        console.log('Minting');
+
         LibToken._mintOptIn(_cofi, _recipient, mintAfterFee);
-        console.log('Minted');
+
         // Distribute rewards.
         LibReward._initReward();
         if (_referral != address(0)) {
             LibReward._referReward(_referral);
         }
-        console.log('Deposited');
+
         emit LibToken.Deposit(s.underlying[_cofi], _underlyingIn, _depositFrom, fee);
     }
 
