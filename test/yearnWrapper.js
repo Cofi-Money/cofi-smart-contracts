@@ -42,7 +42,7 @@ describe("Test Yearn custom wrappers", function() {
 
         console.log(await helpers.time.latestBlock())
 
-        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
+        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
         const wyvUSDC = await WYVUSDC.deploy(
             YVUSDC_Addr,
             YVOP_Addr,
@@ -59,7 +59,7 @@ describe("Test Yearn custom wrappers", function() {
         await wyvUSDC.waitForDeployment()
         console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
     
-        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
+        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
         const wyvETH = await WYVETH.deploy(
             YVETH_Addr,
             YVOP_Addr,
@@ -77,7 +77,9 @@ describe("Test Yearn custom wrappers", function() {
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
 
         await wyvUSDC.setAuthorized((await owner.getAddress()), "1")
+        await wyvUSDC.setRewardShareReceiver(await owner.getAddress())
         await wyvETH.setAuthorized((await owner.getAddress()), "1")
+        await wyvETH.setRewardShareReceiver(await owner.getAddress())
 
         /* Initial deposit */
         const whaleSigner = await ethers.getImpersonatedSigner(whaleUsdcEth)

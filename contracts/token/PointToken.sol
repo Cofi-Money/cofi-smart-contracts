@@ -30,6 +30,8 @@ contract PointToken is ERC20 {
         app = _app;
         cofi  = _cofi;
         admin[msg.sender] = 1;
+        // Mint a single "real" token to display token page.
+        _mint(app, 1);
     }
 
     address     app;

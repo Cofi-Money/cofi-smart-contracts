@@ -41,18 +41,18 @@ contract InitDiamond {
         s.underlying[_args.coBTC] = _args.wBTC;
 
         // Set min deposit/withdraw values (target $20).
-        s.minDeposit[_args.coUSD]   = 20e6 - 1; // 20 USDC [6 digits].
-        s.minDeposit[_args.coETH]   = 1e16 - 1; // 0.01 ETH [18 digits].
-        s.minDeposit[_args.coBTC]   = 1e5 - 1;  // 0.001 BTC [8 digits].
-        s.minWithdraw[_args.coUSD]  = 20e6 - 1; // 20 USDC.
-        s.minWithdraw[_args.coETH]  = 1e16 - 1; // 0.01 ETH.
-        s.minWithdraw[_args.coBTC]  = 1e5 - 1;  // 0.001 BTC.
+        s.minDeposit[_args.coUSD]   = 1e6 - 1; // 1 USDC [6 digits].
+        s.minDeposit[_args.coETH]   = 1e15 - 1; // 0.001 wETH [18 digits].
+        s.minDeposit[_args.coBTC]   = 1e4 - 1;  // 0.0001 wBTC [8 digits].
+        s.minWithdraw[_args.coUSD]  = 1e6 - 1; // 1 USDC.
+        s.minWithdraw[_args.coETH]  = 1e15 - 1; // 0.001 wETH.
+        s.minWithdraw[_args.coBTC]  = 1e4 - 1;  // 0.0001 wBTC.
 
         s.vault[_args.coUSD]    = _args.vUSDC;
         s.vault[_args.coETH]    = _args.vETH;
         s.vault[_args.coBTC]    = _args.vBTC;
 
-        // Only CompoundV2 wrapper is harvestable upon launch.
+        // Only YearnV2 and CompoundV2 (Sonne) harvestable to begin with.
         // s.harvestable[s.vault[_args.coUSD]] = 1;
         // s.harvestable[s.vault[_args.coETH]] = 1;
         s.harvestable[s.vault[_args.coBTC]] = 1;
@@ -103,12 +103,12 @@ contract InitDiamond {
         s.decimals[_args.wETH] = 18;
         s.decimals[_args.wBTC] = 8;
 
-        // 100 USDC buffer for migrations.
-        s.buffer[_args.coUSD]   = 100*10**uint256(s.decimals[_args.USDC]);
-        // 0.1 wETH buffer for migrations.
-        s.buffer[_args.coETH]   = 1*10**uint256((s.decimals[_args.wETH] - 1));
-        // 0.01 wBTC buffer for migrations.
-        s.buffer[_args.coBTC]   = 1*10**uint256((s.decimals[_args.wBTC] - 2));
+        // 10 USDC buffer for migrations.
+        s.buffer[_args.coUSD]   = 10*10**uint256(s.decimals[_args.USDC]);
+        // 0.01 wETH buffer for migrations.
+        s.buffer[_args.coETH]   = 1*10**uint256((s.decimals[_args.wETH] - 2));
+        // 0.001 wBTC buffer for migrations.
+        s.buffer[_args.coBTC]   = 1*10**uint256((s.decimals[_args.wBTC] - 3));
 
         s.isAdmin[msg.sender] = 1;
         s.isWhitelisted[msg.sender] = 1;

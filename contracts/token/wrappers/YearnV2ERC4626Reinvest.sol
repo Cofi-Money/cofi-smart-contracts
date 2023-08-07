@@ -100,6 +100,7 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
 
     address public rewardShareReceiver;
 
+    /// @dev Ensure to set 'rewardShareReceiver' after deploying.
     constructor(
         VaultAPI _vault,
         VaultAPI _rewardVault,
@@ -375,6 +376,11 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         return true;
     }
 
+    /**
+     * @notice  The rewardShareReceiver should be tha account owning share tokens.
+     *          "reward shares" are shares received by investing wants received from rewards
+     *          into the vault (e.g., yvUSDC).
+     */
     function setRewardShareReceiver(
         address _account
     )   external onlyOwner

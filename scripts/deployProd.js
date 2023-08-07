@@ -25,8 +25,6 @@ async function main() {
     const backupOwner = '0x79b68a8C62AA0FEdA39d08E4c6755928aFF576C5'
     const feeCollector = '0x0231c56e6Ee4257E1F79625c8bCEc746964801Aa'
 
-    console.log(await helpers.time.latestBlock())
-
     /* Deploy COFI tokens */
     const COFITOKEN = await ethers.getContractFactory("COFIRebasingToken")
     const coUSD = await COFITOKEN.deploy(
