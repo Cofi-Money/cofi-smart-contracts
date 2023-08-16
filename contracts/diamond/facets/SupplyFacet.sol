@@ -143,15 +143,18 @@ contract SupplyFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Set COFI stablecoin vars first before onboarding (refer to LibAppStorage.sol).
+    /// @dev Added decimals.
     function onboardAsset(
         address _cofi,
         address _underlying,
-        address _vault
+        address _vault,
+        uint8   _decimals
     )   external
         onlyAdmin
         returns (bool)
     {
         s.underlying[_cofi] = _underlying;
+        s.decimals[_cofi] = _decimals;
         s.vault[_cofi] = _vault;
         return true;
     }

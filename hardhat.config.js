@@ -26,6 +26,10 @@ module.exports = {
     strict: false
   },
   networks: {
+    ethereum: {
+      url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`,
+      accounts: [`${PRIV_KEY}`]
+    },
     optimisticEthereum: {
       url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
       accounts: [`${PRIV_KEY}`]
@@ -37,7 +41,7 @@ module.exports = {
       // forking: {
       //   url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
       // },
-      // forking: {
+      // forking: {T
       //   url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
       // }
     }

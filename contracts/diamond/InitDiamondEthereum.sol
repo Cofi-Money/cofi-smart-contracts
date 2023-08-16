@@ -51,7 +51,7 @@ contract InitDiamondEthereum {
         s.redeemFee[_args.coUSD] = 10;
 
         // Set service fee.
-        s.serviceFee[_args.coUSD] = 1e3;
+        s.serviceFee[_args.coUSD] = 125;
 
         // Set points rate.
         s.pointsRate[_args.coUSD]   = 1e6;  // 100 points/1.0 coUSD earned.
