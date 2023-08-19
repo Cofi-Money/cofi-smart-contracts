@@ -7,6 +7,7 @@ import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import { ICOFIToken } from '.././interfaces/ICOFIToken.sol';
 import 'contracts/token/utils/StableMath.sol';
+import 'hardhat/console.sol';
 
 library LibToken {
     using PercentageMath for uint256;

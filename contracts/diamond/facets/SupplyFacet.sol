@@ -7,6 +7,7 @@ import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -46,7 +47,8 @@ contract SupplyFacet is Modifiers {
     {
         // Preemptively rebases if enabled.
         if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
-
+        console.log('A');
+        console.log('underlying %s', s.underlying[_cofi]);
         // Transfer underlying to this contract first to prevent user having to 
         // approve 1+ vaults (if/when the vault used changes, upon revisiting platform).
         LibToken._transferFrom(
@@ -55,13 +57,13 @@ contract SupplyFacet is Modifiers {
             _depositFrom,
             address(this)
         );
-        
+        console.log('B');
         SafeERC20.safeApprove(
             IERC20(IERC4626(s.vault[_cofi]).asset()),
             s.vault[_cofi],
             _underlyingIn
         );
-
+        console.log('C');
         uint256 assets = LibToken._toCofiDecimals(
             _cofi,
             LibVault._getAssets(
@@ -73,7 +75,7 @@ contract SupplyFacet is Modifiers {
                 s.vault[_cofi]
             )
         );
-
+        console.log('D');
         require(assets >= _cofiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_cofi, assets);

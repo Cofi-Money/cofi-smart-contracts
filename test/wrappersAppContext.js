@@ -15,7 +15,7 @@ const YVUSDC_ABI = require("./abi/YVUSDC.json")
 const YVETH_ABI = require("./abi/YVETH.json")
 
 const WBTC_ABI = require("./abi/WBTC.json")
-const SOWBTC_ABI = require("./abi/SOWBTC.json")
+const SOWBTC_ABI = require("./abi/SOTOKEN.json")
 
 const USDC_Addr = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607"
 const WETH_Addr = "0x4200000000000000000000000000000000000006"
@@ -66,7 +66,7 @@ describe("Test wrappers in app context", function() {
 
         /* Deploy wrappers */
 
-        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
+        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
         const wyvUSDC = await WYVUSDC.deploy(
             YVUSDC_Addr,
             YVOP_Addr,
@@ -83,7 +83,7 @@ describe("Test wrappers in app context", function() {
         await wyvUSDC.waitForDeployment()
         console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
     
-        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Wrapper")
+        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
         const wyvETH = await WYVETH.deploy(
             YVETH_Addr,
             YVOP_Addr,
@@ -100,7 +100,7 @@ describe("Test wrappers in app context", function() {
         await wyvETH.waitForDeployment()
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
 
-        const WSOBTC = await ethers.getContractFactory("CompoundV2ERC4626Wrapper")
+        const WSOBTC = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")
         const wsoBTC = await WSOBTC.deploy(
             WBTC_Addr,
             OP_Addr,
@@ -117,7 +117,7 @@ describe("Test wrappers in app context", function() {
 
         /* Deploy COFI tokens */
 
-        const FIUSD = await ethers.getContractFactory("FiToken")
+        const FIUSD = await ethers.getContractFactory("COFIRebasingToken")
         const fiUSD = await FIUSD.deploy(
             "COFI Dollar",
             "fiUSD"
@@ -125,7 +125,7 @@ describe("Test wrappers in app context", function() {
         await fiUSD.waitForDeployment()
         console.log("fiUSD deployed: " + await fiUSD.getAddress())
 
-        const FIETH = await ethers.getContractFactory("FiToken")
+        const FIETH = await ethers.getContractFactory("COFIRebasingToken")
         const fiETH = await FIETH.deploy(
             "COFI Ethereum",
             "fiETH"
@@ -133,7 +133,7 @@ describe("Test wrappers in app context", function() {
         await fiETH.waitForDeployment()
         console.log("fiETH deployed: " + await fiETH.getAddress())
 
-        const FIBTC = await ethers.getContractFactory("FiToken")
+        const FIBTC = await ethers.getContractFactory("COFIRebasingToken")
         const fiBTC = await FIBTC.deploy(
             "COFI Bitcoin",
             "fiBTC"

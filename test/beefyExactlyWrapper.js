@@ -19,7 +19,8 @@ const wmooExactlyUSDC_Addr = "0x3a524ed2846C57f167a9284a74E0Fd04E2295786"
 const wmooExactlyETH_Addr = "0x983Cb232571dE5B3fcaB42Ef0a42594cE7772ced"
 const mooExactlyUSDC_Addr = "0xE7db4eA58560D4678DF204165D1f50d18185BC89"
 const mooExactlyETH_Addr = "0x0Bf7616889d0ae18382d9715eAc00a3302e9aB92"
-const whale_Addr = "0xee55c2100C3828875E0D65194311B8eF0372C6d9"
+const whaleUsdc_Addr = "0xB7C68AFfFa311fE6fDd8A8D95bf9b419399f244c"
+const whaleEth_Addr = "0x1A162A5FdaEbb0113f7B83Ed87A43BCF0B6a4D1E"
 const whaleMooExactlyUsdc_Addr = "0x8AFEdbE65d451fa9Ba80637c8Ef4eec48DE52da3"
 const whaleMooExactlyEth_Addr = "0x9a31EC2df5D42Aa0537ff845b01512112d94a7a4"
 const NULL_Addr = "0x0000000000000000000000000000000000000000"
@@ -35,7 +36,8 @@ describe("Test Beefy Exactly wrappers", function() {
         const feeCollector = accounts[3]
         const signer = await ethers.provider.getSigner(0)
         const backupSigner = await ethers.provider.getSigner(1)
-        const whaleSigner = await ethers.getImpersonatedSigner(whale_Addr)
+        const whaleUsdcSigner = await ethers.getImpersonatedSigner(whaleUsdc_Addr)
+        const whaleEthSigner = await ethers.getImpersonatedSigner(whaleEth_Addr)
         const whaleMooExactlyUsdcSigner = await ethers.getImpersonatedSigner(whaleMooExactlyUsdc_Addr)
         const whaleMooExactlyEthSigner = await ethers.getImpersonatedSigner(whaleMooExactlyEth_Addr)
 
@@ -148,15 +150,15 @@ describe("Test Beefy Exactly wrappers", function() {
         console.log("Whitelisted 2nd user")
 
         /* Obtain funds */
-        const whaleUsdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleSigner)
+        const whaleUsdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleUsdcSigner)
         await whaleUsdc.transfer((await owner.getAddress()), "1000000000") // 1,000 USDC
         console.log("Transferred USDC to user")
         await whaleUsdc.transfer((await backupOwner.getAddress()), "1000000000") // 1,000 USDC
         console.log("Transferred USDC to 2nd user")
-        const whaleWeth = (await ethers.getContractAt(wETH_ABI, wETH_Addr)).connect(whaleSigner)
+        const whaleWeth = (await ethers.getContractAt(wETH_ABI, wETH_Addr)).connect(whaleEthSigner)
         await whaleWeth.transfer((await owner.getAddress()), "1000000000000000000") // 1 wETH
         console.log("Transferred wETH to user")
-        await whaleWeth.transfer((await backupOwner.getAddress()), "1000000000000000000") // 1 wETH
+        await whaleWeth.transfer((await backupOwner.getAddress()), "100000000000000000") // 0.1 wETH
         console.log("Transferred wETH to 2nd user")
 
         /* Get asset contracts */
@@ -182,11 +184,15 @@ describe("Test Beefy Exactly wrappers", function() {
         )
 
         /* Initial USDC deposit */
+        console.log('Approving USDC');
         await usdc.approve(await diamond.getAddress(), "1000000000") // 1,000 USDC
+        console.log('Approved USDC')
+        console.log(await coUSD.getAddress())
+        const coUSD_Addr = await coUSD.getAddress()
         await cofiMoney.underlyingToCofi(
             "1000000000", // underlying [6 decimaos]
             "997500000000000000000", // 0.25% slippage fi [18 decimals]
-            await coUSD.getAddress(),
+            coUSD_Addr,
             await owner.getAddress(),
             await owner.getAddress(),
             NULL_Addr
@@ -197,7 +203,9 @@ describe("Test Beefy Exactly wrappers", function() {
         console.log("t0 Diamond wmooExactlyUSDC bal: ", await wmooExactlyUSDC.balanceOf(await diamond.getAddress()))
 
         /* Initial wETH deposit */
+        console.log("Approving wETH")
         await weth.approve(await diamond.getAddress(), "1000000000000000000") // 1 wETH
+        console.log("Approved wETH")
         await cofiMoney.underlyingToCofi(
             "1000000000000000000", // underlying [18 decimaos]
             "997500000000000000", // 0.25% slippage fi [18 decimals]
