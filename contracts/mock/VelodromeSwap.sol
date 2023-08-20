@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { IRouter } from "contracts/interfaces/IRouter.sol";
+import { IRouter } from "../diamond/interfaces/IRouter.sol";
 import { ERC20 } from 'solmate/src/tokens/ERC20.sol';
 
 contract VelodromeSwap {

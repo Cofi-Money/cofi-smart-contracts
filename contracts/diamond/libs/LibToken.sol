@@ -191,22 +191,27 @@ library LibToken {
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
-
+        console.log('Entering _poke');
         uint256 currentSupply = IERC20(_cofi).totalSupply();
         if (currentSupply == 0) {
             emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
             return (0, 0, 0); 
         }
         // Preemptively harvest if necessary for vault.
-        if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(_cofi);
-
+        if (s.harvestable[s.vault[_cofi]] == 1) {
+            console.log('Attempting to harvest');
+            LibVault._harvest(_cofi);
+            console.log('Success');
+        }
+        
         assets = _toCofiDecimals(_cofi, LibVault._totalValue(s.vault[_cofi]));
+        console.log('assets: %s', assets);
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
 
             shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
-
+            console.log('Changing supply');
             _changeSupply(
                 _cofi,
                 currentSupply + shareYield,

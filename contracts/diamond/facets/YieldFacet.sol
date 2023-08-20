@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { Modifiers } from '../libs/LibAppStorage.sol';
 import { LibToken } from '../libs/LibToken.sol';
+import { LibSwap } from '../libs/LibSwap.sol';
 import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
 import { IERC4626 } from '../interfaces/IERC4626.sol';
@@ -65,16 +66,34 @@ contract YieldFacet is Modifiers {
             address(this)
         );
 
+        /**
+         * @dev Upgraded logic to swap for new underlying {Upgrade 1}.
+         * @dev Only support single swaps for now, hence take first/only element.
+         * @dev Need to ensure that (A) SwapParams have been set for from-to mapping and;
+         * @dev (B) _to asset's decimals are already set (e.g., DAI => 18) and;
+         * @dev (C) 'buffer' is set for new underlying and resides at this address and;
+         * @dev (D) 'harvestable' bool is indicated for new vault if required.
+         */
+        if (IERC4626(s.vault[_cofi]).asset() != IERC4626(_newVault).asset()) {
+            assets = LibSwap._velodromeV2SwapStable(
+                IERC4626(s.vault[_cofi]).asset(),
+                IERC4626(_newVault).asset(),
+                assets
+            )[0];
+            // Update underlying for cofi token.
+            s.underlying[_cofi] = IERC4626(_newVault).asset();
+        }
+
         // Approve _newVault spend for Diamond.
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[_cofi]).asset()),
+            IERC20(IERC4626(_newVault).asset()),
             _newVault,
-            assets + s.buffer[_cofi]
+            assets + s.buffer[s.underlying[_cofi]] // Amended {Upgrade 1}.
         );
 
         // Deploy funds to new vault.
         LibVault._wrap(
-            assets + s.buffer[_cofi],
+            assets + s.buffer[s.underlying[_cofi]], // Amended {Upgrade 1}.
             _newVault,
             address(this)
         );
@@ -209,5 +228,53 @@ contract YieldFacet is Modifiers {
         returns (uint8)
     {
         return s.harvestable[_vault];
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            {Upgrade 1}
+                Added logic to swap underlying for cofi token
+    //////////////////////////////////////////////////////////////*/
+
+    function setSwapParams(
+        address _from,
+        address _to,
+        uint256 _slippage,
+        uint256 _wait
+    )   external
+        returns (bool)
+    {
+        s.swapParams[_from][_to].slippage = _slippage;
+        s.swapParams[_from][_to].wait = _wait;
+        return true;
+    }
+
+    function setDecimals(
+        address _underlying,
+        uint8   _decimals
+    )   external
+        returns (bool)
+    {
+        s.decimals[_underlying] = _decimals;
+        return true;
+    }
+
+    function getSwapParams(
+        address _from,
+        address _to
+    )   external view
+        returns (uint256, uint256)
+    {
+        return (
+            s.swapParams[_from][_to].slippage,
+            s.swapParams[_from][_to].wait
+        );
+    }
+
+    function getDecimals(
+        address _underlying
+    )   external view
+        returns (uint8)
+    {
+        return s.decimals[_underlying];
     }
 }

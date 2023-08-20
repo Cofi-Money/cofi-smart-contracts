@@ -15,43 +15,52 @@ struct RewardStatus {
 }
 
 /*//////////////////////////////////////////////////////////////
-                    LOAN STRUCTS {Update 1}
+                    SWAP STRUCT {Update 1}
 //////////////////////////////////////////////////////////////*/
 
-struct Safe {
-    uint256 bal; // [shares]
-    uint256 debt; // [assets]
-    uint256 deadline;
+struct SwapParams {
+    uint256 slippage;
+    uint256 wait;
 }
 
-struct Collateral {
-    uint256 CR;
-    uint256 duration;
-    // Collateral earmarked for vaults.
-    // totalSupply - occupied = redeemable.
-    uint256 occupied; // [shares]
-    address debt; // [assets]
-    address underlying; // [assets]
-    address pool;
-    Funnel funnel;
-}
+/*//////////////////////////////////////////////////////////////
+                    LOAN STRUCTS {Update ?}
+//////////////////////////////////////////////////////////////*/
 
-struct Funnel {
-    Stake[] stakes;
-    // Collateral earmarked for redemptions.
-    uint256 loaded; // [assets]
-    uint256 loadFromIndex;
-}
+// struct Safe {
+//     uint256 bal; // [shares]
+//     uint256 debt; // [assets]
+//     uint256 deadline;
+// }
 
-struct Stake {
-    uint256 assets;
-    address account;
-}
+// struct Collateral {
+//     uint256 CR;
+//     uint256 duration;
+//     // Collateral earmarked for vaults.
+//     // totalSupply - occupied = redeemable.
+//     uint256 occupied; // [shares]
+//     address debt; // [assets]
+//     address underlying; // [assets]
+//     address pool;
+//     Funnel funnel;
+// }
 
-struct RedemptionInfo {
-    uint256 redeemable;
-    uint256 directRedeemAllowance;
-}
+// struct Funnel {
+//     Stake[] stakes;
+//     // Collateral earmarked for redemptions.
+//     uint256 loaded; // [assets]
+//     uint256 loadFromIndex;
+// }
+
+// struct Stake {
+//     uint256 assets;
+//     address account;
+// }
+
+// struct RedemptionInfo {
+//     uint256 redeemable;
+//     uint256 directRedeemAllowance;
+// }
 
 struct AppStorage {
 
@@ -78,6 +87,7 @@ struct AppStorage {
     mapping(address => uint256) pointsRate;
 
     // E.g., coUSD => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
+    /// @dev {Upgrade 1} amends buffer mapping from cofi token to underlying token.
     mapping(address => uint256) buffer;
 
     // E.g., coUSD => yvDAI; fiETH => maETH; fiBTC => maBTC.
@@ -143,7 +153,14 @@ struct AppStorage {
     uint8 reentrantStatus;
 
     /*//////////////////////////////////////////////////////////////
-                        LOAN PARAMS {Update 1}
+                        SWAP PARAMS {Update 1}
+    //////////////////////////////////////////////////////////////*/
+
+    // E.g., USDC => DAI => SwapParams.
+    mapping(address => mapping(address => SwapParams)) swapParams;
+
+    /*//////////////////////////////////////////////////////////////
+                        LOAN PARAMS {Update ?}
     //////////////////////////////////////////////////////////////*/
 
     // // E.g., Alice => coUSD => Safe.

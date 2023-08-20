@@ -14,6 +14,7 @@ import { StableMath } from './libs/StableMath.sol';
 import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -149,12 +150,14 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
     //////////////////////////////////////////////////////////////*/
 
     function harvest() public onlyAuthorized returns (uint256 deposited) {
+        console.log('Entering harvest');
         return swapParams.enabled == 1 ?
             harvestWithSwap() :
             flush();
     }
 
     function harvestWithSwap() internal returns (uint256 deposited) {
+        console.log('Entering harvest with swap');
         if (
             convertYearnRewardSharesToAssets(
                 stakingRewards.earned(address(this))
@@ -172,12 +175,13 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         uint256 rewardAssets = IERC20(yVaultReward.token()).balanceOf(
             address(this)
         );
-
+        console.log('Attempting to swap');
         /// @dev Can trigger harvest by transferring OP.
         if (rewardAssets > swapParams.amountInMin) {
             // Swap for want
             swapExactInputSingle(rewardAssets);
         }
+        console.log('Attempting to flush');
         // Deposit to yVault
         return flush();
     }
@@ -258,9 +262,13 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
     /// @dev    Need to mint reward shares to receiver (in COFI's conetxt, the diamond contract).
     ///         This ensures yield from rewards is reflected in the rebasing token rather than shares.
     function flush() public onlyAdmin returns (uint256 deposited) {
-        (deposited, ) = _doRewardDeposit(
-            IERC20(asset()).balanceOf(address(this)), rewardShareReceiver
-        );
+        console.log('Entering flush');
+        console.log('Want bal: %s', IERC20(asset()).balanceOf(address(this)));
+        if (IERC20(asset()).balanceOf(address(this)) > 0) {
+            (deposited, ) = _doRewardDeposit(
+                IERC20(asset()).balanceOf(address(this)), rewardShareReceiver
+            );
+        } else return 0;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -524,9 +532,10 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         SafeERC20.safeApprove(_token, address(stakingRewardsZap), _amount);
 
         uint256 beforeBal = _token.balanceOf(address(this));
-
+        console.log('Zapping in');
         // Returns 'toStake'
         mintedShares = stakingRewardsZap.zapIn(address(yVault), _amount);
+        console.log('Zapped in');
 
         uint256 afterBal = _token.balanceOf(address(this));
         deposited = beforeBal - afterBal;

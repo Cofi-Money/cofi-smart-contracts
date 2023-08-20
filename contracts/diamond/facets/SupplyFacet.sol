@@ -75,7 +75,7 @@ contract SupplyFacet is Modifiers {
                 s.vault[_cofi]
             )
         );
-        console.log('D');
+        console.log('assets: %s', assets);
         require(assets >= _cofiOutMin, 'SupplyFacet: Slippage exceeded');
 
         uint256 fee = LibToken._getMintFee(_cofi, assets);

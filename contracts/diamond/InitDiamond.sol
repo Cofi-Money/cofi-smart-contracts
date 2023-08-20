@@ -53,9 +53,9 @@ contract InitDiamond {
         s.vault[_args.coBTC]    = _args.vBTC;
 
         // Only YearnV2 and CompoundV2 (Sonne) harvestable to begin with.
-        // s.harvestable[s.vault[_args.coUSD]] = 1;
+        s.harvestable[s.vault[_args.coUSD]] = 1;
         // s.harvestable[s.vault[_args.coETH]] = 1;
-        s.harvestable[s.vault[_args.coBTC]] = 1;
+        // s.harvestable[s.vault[_args.coBTC]] = 1;
 
         // Set mint enabled.
         s.mintEnabled[_args.coUSD]  = 1;
