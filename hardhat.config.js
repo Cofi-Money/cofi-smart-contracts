@@ -39,12 +39,12 @@ module.exports = {
       // forking: {
       //   url: `https://mainnet.infura.io/v3/${INFURA_API_KEY}`
       // },
+      // forking: {
+      //   url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
+      // },
       forking: {
-        url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
-      },
-      // forking: {T
-      //   url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
-      // }
+        url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+      }
     }
   },
   etherscan: {

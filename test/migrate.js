@@ -315,5 +315,9 @@ describe("Test migrations", function() {
             NULL_Addr
         )
         console.log("t2 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+
+        // Migrate to yvUSDC
+
+        // Do third deposit
     })
 })

@@ -26,6 +26,25 @@ contract SupplyFacet is Modifiers {
                         DEPOSIT & WITHDRAW FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
+    function underlyingToCofiRouter(
+        uint256 _assetIn,
+        // uint256 _cofiOutMin, Handle slippage check internally for router method.
+        address _asset,
+        address _cofi,
+        address _depositFrom,
+        address _recipient,
+        address _referral
+    )   external
+        returns (uint256 mintAfterFee)
+    {
+        if (_asset == address(1)) {
+            // Do ETH route.
+            
+        } else {
+            // Check if swap is enabled etc.
+        }
+    }
+
     /// @notice Converts a supported underlying token into a cofi token (e.g., USDC to coUSD).
     ///
     /// @param  _underlyingIn   The amount of underlying tokens to deposit.
@@ -41,7 +60,7 @@ contract SupplyFacet is Modifiers {
         address _depositFrom,
         address _recipient,
         address _referral
-    )   external
+    )   public
         nonReentrant isWhitelisted mintEnabled(_cofi) minDeposit(_underlyingIn, _cofi)
         returns (uint256 mintAfterFee)
     {
