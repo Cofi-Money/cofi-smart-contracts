@@ -15,7 +15,9 @@ const DAI_Addr = "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1"
 const WETH_Addr = "0x4200000000000000000000000000000000000006"
 const USDCWhale_Addr = "0x16224283bE3f7C0245d9D259Ea82eaD7fcB8343d"
 const WETHWhale_Addr = "0x0Eb21ed8543789C79bEd81D85b13eA31E7aC805b"
-const DAIWhale_Addr = "0x7B281D987201fC47eAD18c3eDb493A2Fa4B93d4E"
+const DAIWhale_Addr = "0xb3Bdb50f1DF8F7AA756a26af398f034FE18F064A"
+const USDCPriceFeed_Addr = "0x16a9fa2fda030272ce99b29cf780dfa30361e0f3"
+const DAIPriceFeed_Addr = "0x8dba75e83da73cc766a7e5a0ee71f656bab470d6"
 const NULL_Addr = "0x0000000000000000000000000000000000000000"
 
 describe("Test swapping USDC to DAI via Velodrome", function() {
@@ -31,7 +33,7 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         const VelodromeSwap = await ethers.getContractFactory("VelodromeSwap")
         const velodromeSwap = await VelodromeSwap.deploy(
             12, // wait [seconds]
-            200 // slippage = 2%
+            100 // slippage = 1%
         )
         await velodromeSwap.waitForDeployment()
         console.log("Velodrome Swap contract deployed: ", await velodromeSwap.getAddress())
@@ -57,8 +59,8 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         // Set USDC => DAI swap route (+ DAI => USDC).
         await velodromeSwap.setRoute(
             USDC_Addr,
-            DAI_Addr,
             NULL_Addr,
+            DAI_Addr,
             [true, false] // 2nd param does not matter.
         )
         console.log("Set USDC => DAI route")
@@ -66,8 +68,8 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         // Set wETH (=> USDC) => DAI swap route (+ DAI (=> USDC) => wETH).
         await velodromeSwap.setRoute(
             WETH_Addr,
-            DAI_Addr,
             USDC_Addr,
+            DAI_Addr,
             [false, true]
         )
         console.log("Set wETH => DAI + ETH => wETH => DAI route")
@@ -75,11 +77,19 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         // Set ETH (=> wETH) => USDC swap route (+ wETH => USDC; USDC (=> wETH) => ETH; + USDC => wETH).
         await velodromeSwap.setRoute(
             WETH_Addr,
-            USDC_Addr,
             NULL_Addr,
-            [false, true] // 2nd param does not matter.
+            USDC_Addr,
+            [false, false] // 2nd param does not matter.
         )
         console.log("Set wETH => DAI route")
+
+        await velodromeSwap.setDecimals(USDC_Addr, 6);
+        await velodromeSwap.setDecimals(DAI_Addr, 18);
+        console.log("Set decimals")
+
+        await velodromeSwap.setPriceFeed(USDC_Addr, USDCPriceFeed_Addr)
+        await velodromeSwap.setPriceFeed(DAI_Addr, DAIPriceFeed_Addr)
+        console.log("Set price feeds")
 
         const usdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(signer)
         const dai = (await ethers.getContractAt(DAI_ABI, DAI_Addr)).connect(signer)
