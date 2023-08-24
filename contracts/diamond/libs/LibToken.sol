@@ -350,4 +350,12 @@ library LibToken {
 
         return _amount.scaleBy(uint256(s.decimals[s.underlying[_cofi]]), 18);
     }
+
+    function _applySlippage(
+        uint256 _amount
+    ) internal view returns (uint256) {
+        AppStorage storage s = LibAppStorage.diamondStorage();
+
+        return _amount.percentMul(1e4 - s.defaultSlippage);
+    }
 }

@@ -12,33 +12,32 @@ library LibVault {
 
     /// @notice Emitted when a wrap operation is executed.
     ///
-    /// @param  amount      The amount of underlying tokens wrapped.
-    /// @param  depositFrom The account which supplied the underlying tokens.
-    /// @param  vault       The ERC4626 Vault.
-    /// @param  shares      The amount of shares minted.
-    event Wrap(uint256 amount, address indexed depositFrom, address indexed vault, uint256 shares);
+    /// @param amount   The amount of assets wrapped.
+    /// @param sender   The account executing the wrap operation.
+    /// @param vault    The ERC4626 Vault.
+    /// @param shares   The amount of shares minted.
+    event Wrap(uint256 amount, address indexed sender, address indexed vault, uint256 shares);
 
     /// @notice Emitted when an unwrap operation is executed.
     ///
-    /// @param  amount      The amount of cofi tokens redeemed.
-    /// @param  shares      The amount of shares burned.
-    /// @param  vault       The ERC4626 Vault.
-    /// @param  assets      The amount of underlying tokens received from the Vault.
-    /// @param  recipient   The recipient of the underlying tokens.
-    event Unwrap(uint256 amount, uint256 shares, address indexed vault, uint256 assets, address indexed recipient);
+    /// @param amount   The amount of shares unwrapped.
+    /// @param sender   The account executing the wrap operation.
+    /// @param vault    The ERC4626 Vault.
+    /// @param assets   The amount of assets redeemed.
+    event Unwrap(uint256 amount, address indexed sender, address indexed vault, uint256 assets);
 
     /// @notice Emitted when a vault migration is executed.
     ///
-    /// @param  cofi        The cofi token to migrate underlying tokens for.
-    /// @param  oldVault    The vault migrated from.
-    /// @param  newVault    The vault migrated to.
-    /// @param  oldAssets   The amount of assets pre-migration.
-    /// @param  newAssets   The amount of assets post-migration.
+    /// @param cofi         The cofi token to migrate assets for.
+    /// @param vault        The vault migrated from.
+    /// @param newVault     The vault migrated to.
+    /// @param assets       The amount of assets pre-migration.
+    /// @param newAssets    The amount of assets post-migration.
     event VaultMigration(
         address indexed cofi,
-        address indexed oldVault,
+        address indexed vault,
         address indexed newVault,
-        uint256 oldAssets,
+        uint256 assets,
         uint256 newAssets
     );
 
@@ -91,19 +90,17 @@ library LibVault {
                             STATE CHANGE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Wraps an underlying token into corresponding shares via a Vault.
+    /// @notice Wraps an underlying token into corresponding shares.
     ///
-    /// @param  _amount         The amount of underlying tokens to wrap.
-    /// @param  _vault          The ERC4626 Vault.
-    /// @param  _depositFrom    The account supplying underlying tokens from.
+    /// @param  _amount The amount of underlying tokens to wrap.
+    /// @param  _vault  The ERC4626 Vault.
     function _wrap(
         uint256 _amount,
-        address _vault,
-        address _depositFrom
+        address _vault
     ) internal returns (uint256 shares) {
 
         shares = IERC4626(_vault).deposit(_amount, address(this));
-        emit Wrap(_amount, _depositFrom, _vault, shares);
+        emit Wrap(_amount, msg.sender, _vault, shares);
     }
 
     /// @notice Unwraps shares into underlying tokens via the relevant Vault.
@@ -121,7 +118,7 @@ library LibVault {
         uint256 shares = IERC4626(_vault).previewDeposit(_amount);
 
         assets = IERC4626(_vault).redeem(shares, _recipient, address(this));
-        emit Unwrap(_amount, shares, _vault, assets, _recipient);
+        emit Unwrap(_amount, msg.sender, _vault, shares);
     }
 
     /// @notice Executes a harvest operation in the vault contract.

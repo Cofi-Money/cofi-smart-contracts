@@ -214,7 +214,7 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
 
         await velodromeSwap.swapExactTokensForETH(
-            '100000000',
+            '1000000000',
             USDC_Addr
         )
 
@@ -228,7 +228,7 @@ describe("Test swapping USDC to DAI via Velodrome", function() {
         console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
 
         await velodromeSwap.swapExactTokensForETH(
-            ethers.parseEther('100'),
+            ethers.parseEther('1000'),
             DAI_Addr
         )
 

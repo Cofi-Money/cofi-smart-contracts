@@ -27,18 +27,18 @@ contract YieldFacet is Modifiers {
 
     /// @notice Function for updating cofi token supply relative to vault earnings.
     ///
-    /// @param  _cofi The cofi token to distribute yield earnings for.
+    /// @param  _co The co token to distribute yield earnings for.
     function rebase(
-        address _cofi
+        address _co
     )   external
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
-        if (s.rebasePublic[_cofi] == 0)
+        if (s.rebasePublic[_co] == 0)
             require(
                 s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
                 'YieldFacet: Caller not Upkeep or Admin'
             );
-        return LibToken._poke(_cofi);
+        return LibToken._poke(_co);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -66,6 +66,7 @@ contract YieldFacet is Modifiers {
             address(this)
         );
 
+
         /**
          * @dev Upgraded logic to swap for new underlying {Upgrade 1}.
          * @dev Only support single swaps for now, hence take first/only element.
@@ -75,11 +76,12 @@ contract YieldFacet is Modifiers {
          * @dev (D) 'harvestable' bool is indicated for new vault if required.
          */
         if (IERC4626(s.vault[_cofi]).asset() != IERC4626(_newVault).asset()) {
-            assets = LibSwap._velodromeV2SwapStable(
+            assets = LibSwap._swapERC20ForERC20(
+                assets,
                 IERC4626(s.vault[_cofi]).asset(),
                 IERC4626(_newVault).asset(),
-                assets
-            )[0];
+                address(this)
+            );
             // Update underlying for cofi token.
             s.underlying[_cofi] = IERC4626(_newVault).asset();
         }
@@ -88,14 +90,13 @@ contract YieldFacet is Modifiers {
         SafeERC20.safeApprove(
             IERC20(IERC4626(_newVault).asset()),
             _newVault,
-            assets + s.buffer[s.underlying[_cofi]] // Amended {Upgrade 1}.
+            assets + s.buffer[s.underlying[_cofi]]
         );
 
         // Deploy funds to new vault.
         LibVault._wrap(
-            assets + s.buffer[s.underlying[_cofi]], // Amended {Upgrade 1}.
-            _newVault,
-            address(this)
+            assets + s.buffer[s.underlying[_cofi]],
+            _newVault
         );
 
         require(
@@ -148,7 +149,7 @@ contract YieldFacet is Modifiers {
     {
         require(
             s.vault[_cofi] == address(0),
-            'YieldFacet: cofi token must not already link with a vault'
+            'YieldFacet: COFI token must not already link with a vault'
         );
         s.vault[_cofi] = _vault;
         return true;
@@ -176,26 +177,26 @@ contract YieldFacet is Modifiers {
         return true;
     }
 
-    /// @notice Opts the diamond into receiving yield on holding of cofi tokens (which fees
+    /// @notice Opts the diamond into receiving yield on holding of co tokens (which fees
     ///         are captured in). Note that the feeCollector is a separate contract.
     ///         By default, elect to not activate (thereby passing on yield to holders).
     function rebaseOptIn(
-        address _cofi
+        address _co
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptIn(_cofi);
+        LibToken._rebaseOptIn(_co);
         return true;
     }
 
     function rebaseOptOut(
-        address _cofi
+        address _co
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptOut(_cofi);
+        LibToken._rebaseOptOut(_co);
         return true;
     }
 
@@ -213,12 +214,12 @@ contract YieldFacet is Modifiers {
     }
 
     function getRebasePublic(
-        address _cofi
+        address _co
     )   external
         view
         returns (uint8)
     {
-        return s.rebasePublic[_cofi];
+        return s.rebasePublic[_co];
     }
 
     function getHarvestable(
@@ -235,18 +236,18 @@ contract YieldFacet is Modifiers {
                 Added logic to swap underlying for cofi token
     //////////////////////////////////////////////////////////////*/
 
-    function setSwapParams(
-        address _from,
-        address _to,
-        uint256 _slippage,
-        uint256 _wait
-    )   external
-        returns (bool)
-    {
-        s.swapParams[_from][_to].slippage = _slippage;
-        s.swapParams[_from][_to].wait = _wait;
-        return true;
-    }
+    // function setSwapParams(
+    //     address _from,
+    //     address _to,
+    //     uint256 _slippage,
+    //     uint256 _wait
+    // )   external
+    //     returns (bool)
+    // {
+    //     s.swapParams[_from][_to].slippage = _slippage;
+    //     s.swapParams[_from][_to].wait = _wait;
+    //     return true;
+    // }
 
     function setDecimals(
         address _underlying,
@@ -258,17 +259,17 @@ contract YieldFacet is Modifiers {
         return true;
     }
 
-    function getSwapParams(
-        address _from,
-        address _to
-    )   external view
-        returns (uint256, uint256)
-    {
-        return (
-            s.swapParams[_from][_to].slippage,
-            s.swapParams[_from][_to].wait
-        );
-    }
+    // function getSwapParams(
+    //     address _from,
+    //     address _to
+    // )   external view
+    //     returns (uint256, uint256)
+    // {
+    //     return (
+    //         s.swapParams[_from][_to].slippage,
+    //         s.swapParams[_from][_to].wait
+    //     );
+    // }
 
     function getDecimals(
         address _underlying

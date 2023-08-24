@@ -3,6 +3,10 @@ pragma solidity ^0.8.0;
 
 import { LibDiamond } from '.././core/libs/LibDiamond.sol';
 
+/*//////////////////////////////////////////////////////////////
+                        REWARD TYPES
+//////////////////////////////////////////////////////////////*/
+
 struct YieldPointsCapture {
     uint256 yield;
     uint256 points;
@@ -15,10 +19,28 @@ struct RewardStatus {
 }
 
 /*//////////////////////////////////////////////////////////////
-                    SWAP STRUCT {Update 1}
+                            SWAP TYPES
 //////////////////////////////////////////////////////////////*/
 
-struct SwapParams {
+enum SwapProtocol {
+    NonExistent,
+    VelodromeV2,
+    UniswapV3
+}
+
+struct VeloRoute {
+    address mid;
+    /// @dev If mid = address(0): [false, false] => [false, X] (i.e., 2nd arg does not matter).
+    bool[2] stable;
+}
+
+struct UniRoute {
+    address mid;
+    uint24  poolFee1;
+    uint24  poolFee2;
+}
+
+struct SwapInfo {
     uint256 slippage;
     uint256 wait;
 }
@@ -156,8 +178,25 @@ struct AppStorage {
                         SWAP PARAMS {Update 1}
     //////////////////////////////////////////////////////////////*/
 
-    // E.g., USDC => DAI => SwapParams.
-    mapping(address => mapping(address => SwapParams)) swapParams;
+    // E.g., USDC => DAI => SwapRouter.
+    mapping(address => mapping(address => SwapProtocol)) swapProtocol;
+
+    // E.g., USDC => DAI => VeloRoute.
+    mapping(address => mapping(address => VeloRoute)) veloRoute;
+
+    // E.g., USDC => DAI => VeloRoute.
+    mapping(address => mapping(address => UniRoute)) uniRoute;
+
+    // E.g., USDC => DAI => SwapInfo.
+    mapping(address => mapping(address => SwapInfo)) swapInfo;
+
+    // E.g., USDC => Chainlink USDC price oracle.
+    mapping(address => address) priceFeed;
+
+    // Applies to swap and wrap operations.
+    uint256 defaultSlippage;
+
+    uint256 defaultWait;
 
     /*//////////////////////////////////////////////////////////////
                         LOAN PARAMS {Update ?}
@@ -217,6 +256,15 @@ contract Modifiers {
 
     modifier redeemEnabled(address _fi) {
         require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for cofi token');
+        _;
+    }
+
+    modifier isSupportedSwap(address _from, address _to) {
+        /// @dev Enable enter/exit functions if requesting same token as udnerlying for user convenience.
+        /// @dev Enter/exit functions check _from == _to, so swap of same token will not execute.
+        if (_from != _to) {
+            // require(s.veloRoute[_from][_to].enabled == 1, 'Swap order not supported');
+        }
         _;
     }
 

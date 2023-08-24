@@ -5,6 +5,7 @@ import { Modifiers } from '../libs/LibAppStorage.sol';
 import { LibToken } from '../libs/LibToken.sol';
 import { LibReward } from '../libs/LibReward.sol';
 import { LibVault } from '../libs/LibVault.sol';
+import { LibSwap } from '../libs/LibSwap.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import 'hardhat/console.sol';
@@ -23,147 +24,256 @@ import 'hardhat/console.sol';
 contract SupplyFacet is Modifiers {
 
     /*//////////////////////////////////////////////////////////////
-                        DEPOSIT & WITHDRAW FUNCTIONS
+                SWAP & DEPOSIT + WITHDRAW & SWAP FUNCTIONS
     //////////////////////////////////////////////////////////////*/
 
-    function underlyingToCofiRouter(
-        uint256 _assetIn,
-        // uint256 _cofiOutMin, Handle slippage check internally for router method.
-        address _asset,
-        address _cofi,
+    function ETHToCo(
+        address _co,
+        address _recipient,
+        address _referral
+    )   external payable
+        isSupportedSwap(LibSwap.WETH, s.underlying[_co])
+        returns (uint256 mintAfterFee, uint256 underlyingOut)
+    {
+        // Swaps directly from msg.sender's account.
+        underlyingOut = LibSwap._swapETHForERC20(s.underlying[_co]);
+
+        uint256 fee;
+        // Underling tokens reside at this contract from swap operation.
+        (mintAfterFee, fee) = _underlyingToCo(
+            underlyingOut,
+            _co,
+            _recipient,
+            _referral
+        );
+        emit LibToken.Deposit(s.underlying[_co], underlyingOut, msg.sender, fee);
+    }
+
+    function tokensToCo(
+        uint256 _tokensIn,
+        address _token,
+        address _co,
         address _depositFrom,
         address _recipient,
         address _referral
     )   external
-        returns (uint256 mintAfterFee)
+        isSupportedSwap(_token, s.underlying[_co])
+        returns (uint256 mintAfterFee, uint256 underlyingOut)
     {
-        if (_asset == address(1)) {
-            // Do ETH route.
-            
+        // Transfer tokens to this contract first to prevent user having to approve 1+ contracts.
+        LibToken._transferFrom(
+            _token,
+            _tokensIn,
+            _depositFrom,
+            address(this)
+        );
+
+        if (_token != s.underlying[_co]) {
+            underlyingOut = LibSwap._swapERC20ForERC20(
+                _tokensIn,
+                _token,
+                s.underlying[_co],
+                address(this)
+            );
         } else {
-            // Check if swap is enabled etc.
+            underlyingOut = _tokensIn;
+        }
+
+        uint256 fee;
+        // Underling tokens reside at this contract from swap operation.
+        (mintAfterFee, fee) = _underlyingToCo(
+            underlyingOut,
+            _co,
+            _recipient,
+            _referral
+        );
+        emit LibToken.Deposit(s.underlying[_co], underlyingOut, _depositFrom, fee);
+    }
+
+    function coToETH(
+        uint256 _coIn,
+        address _co,
+        address _depositFrom,
+        address _recipient
+    )   external
+        isSupportedSwap(s.underlying[_co], LibSwap.WETH)
+        returns (uint256 burnAfterFee, uint256 ETHOut)
+    {
+        burnAfterFee = coToUnderlying(
+            _coIn,
+            _co,
+            _depositFrom,
+            _recipient
+        );
+
+        ETHOut = LibSwap._swapERC20ForETH(burnAfterFee, s.underlying[_co], _recipient);
+    }
+
+    function coToTokens(
+        uint256 _coIn,
+        address _token,
+        address _co,
+        address _depositFrom,
+        address _recipient
+    )   external
+        isSupportedSwap(s.underlying[_co], _token)
+        returns (uint256 burnAfterFee, uint256 tokensOut)
+    {
+        burnAfterFee = coToUnderlying(
+            _coIn,
+            _co,
+            _depositFrom,
+            _recipient
+        );
+
+        if (_token != s.underlying[_co]) {
+            return (
+                burnAfterFee,
+                LibSwap._swapERC20ForERC20(burnAfterFee, s.underlying[_co], _token, _recipient)
+            );
+        } else {
+            LibToken._transfer(_token, burnAfterFee, _recipient);
+            return (burnAfterFee, burnAfterFee);
         }
     }
 
-    /// @notice Converts a supported underlying token into a cofi token (e.g., USDC to coUSD).
-    ///
-    /// @param  _underlyingIn   The amount of underlying tokens to deposit.
-    /// @param  _cofiOutMin     The minimum amount of cofi tokens received (before fees).
-    /// @param  _cofi           The cofi token to mint.
-    /// @param  _depositFrom    The account to deposit underlying tokens from.
-    /// @param  _recipient      The recipient of the cofi tokens.
-    /// @param  _referral       The referral account (address(0) if none provided).
-    function underlyingToCofi(
+    /*//////////////////////////////////////////////////////////////
+                    DIRECT DEPOSIT + WITHDRAW FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
+
+    function underlyingToCo(
         uint256 _underlyingIn,
-        uint256 _cofiOutMin,
-        address _cofi,
+        address _co,
         address _depositFrom,
         address _recipient,
         address _referral
     )   public
-        nonReentrant isWhitelisted mintEnabled(_cofi) minDeposit(_underlyingIn, _cofi)
+        nonReentrant isWhitelisted mintEnabled(_co) minDeposit(_underlyingIn, _co)
         returns (uint256 mintAfterFee)
     {
-        // Preemptively rebases if enabled.
-        if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
-        console.log('A');
-        console.log('underlying %s', s.underlying[_cofi]);
         // Transfer underlying to this contract first to prevent user having to 
         // approve 1+ vaults (if/when the vault used changes, upon revisiting platform).
         LibToken._transferFrom(
-            s.underlying[_cofi],
+            s.underlying[_co],
             _underlyingIn,
             _depositFrom,
             address(this)
         );
-        console.log('B');
+
+        uint256 fee;
+        (mintAfterFee, fee) = _underlyingToCo(
+            _underlyingIn,
+            _co,
+            _recipient,
+            _referral
+        );
+
+        emit LibToken.Deposit(s.underlying[_co], _underlyingIn, _depositFrom, fee);
+    }
+
+    /// @notice Converts a supported underlying token into a co token (e.g., USDC to coUSD).
+    ///
+    /// @param  _underlyingIn   The amount of underlying tokens to deposit.
+    /// @param  _co             The co token to mint.
+    /// @param  _recipient      The recipient of the co tokens.
+    /// @param  _referral       The referral account (address(0) if none provided).
+    function _underlyingToCo(
+        uint256 _underlyingIn,
+        address _co,
+        address _recipient,
+        address _referral
+    )   internal
+        returns (uint256 mintAfterFee, uint256 fee)
+    {
+        // Preemptively rebases if enabled.
+        if (s.rebasePublic[_co] == 1) LibToken._poke(_co);
+
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[_cofi]).asset()),
-            s.vault[_cofi],
+            IERC20(IERC4626(s.vault[_co]).asset()),
+            s.vault[_co],
             _underlyingIn
         );
-        console.log('C');
+
         uint256 assets = LibToken._toCofiDecimals(
-            _cofi,
+            _co,
             LibVault._getAssets(
                 LibVault._wrap(
                     _underlyingIn,
-                    s.vault[_cofi],
-                    _depositFrom // Purely for Event emission. Wraps from Diamond.
+                    s.vault[_co]
                 ),
-                s.vault[_cofi]
+                s.vault[_co]
             )
         );
-        console.log('assets: %s', assets);
-        require(assets >= _cofiOutMin, 'SupplyFacet: Slippage exceeded');
 
-        uint256 fee = LibToken._getMintFee(_cofi, assets);
+        require(
+            assets >= LibToken._applySlippage(_underlyingIn),
+            'SupplyFacet: Slippage exceeded'
+        );
+
+        fee = LibToken._getMintFee(_co, assets);
         mintAfterFee = assets - fee;
 
-        // Capture mint fee in cofi tokens.
-        if (fee > 0) {
-            LibToken._mint(_cofi, s.feeCollector, fee);
-        }
+        // Capture mint fee in co tokens.
+        if (fee > 0) LibToken._mint(_co, s.feeCollector, fee);
 
-        LibToken._mintOptIn(_cofi, _recipient, mintAfterFee);
+        LibToken._mintOptIn(_co, _recipient, mintAfterFee);
 
         // Distribute rewards.
         LibReward._initReward();
         if (_referral != address(0)) {
             LibReward._referReward(_referral);
         }
-
-        emit LibToken.Deposit(s.underlying[_cofi], _underlyingIn, _depositFrom, fee);
     }
 
-    /// @notice Converts a cofi token to its collateral underlying token (e.g., coUSD to USDC).
+    /// @notice Converts a co token to its collateral underlying token (e.g., coUSD to USDC).
     ///
     /// @notice Can be used to make payments in the underlying token in one tx (e.g., transfer
     ///         USDC directly from coUSD).
     ///
-    /// @param  _cofiIn             The amount of cofi tokens to redeem.
-    /// @param  _underlyingOutMin   The minimum amount of underlying tokens received (AFTER fees).
-    /// @param  _cofi               The cofi token to redeem (e.g., coUSD).
-    /// @param  _depositFrom        The account to deposit cofi tokens from.
-    /// @param  _recipient          The recipient of the underlying tokens.
-    function cofiToUnderlying(
-        uint256 _cofiIn,
-        uint256 _underlyingOutMin,
-        address _cofi,
+    /// @param  _coIn           The amount of co tokens to redeem.
+    /// @param  _co             The co token to redeem (e.g., coUSD).
+    /// @param  _depositFrom    The account to deposit co tokens from.
+    /// @param  _recipient      The recipient of the underlying tokens.
+    function coToUnderlying(
+        uint256 _coIn,
+        address _co,
         address _depositFrom,
         address _recipient
-    )   external
-        nonReentrant isWhitelisted redeemEnabled(_cofi) minWithdraw(_cofiIn, _cofi)
+    )   public
+        nonReentrant isWhitelisted redeemEnabled(_co) minWithdraw(_coIn, _co)
         returns (uint256 burnAfterFee)
     {
-        LibToken._transferFrom(_cofi, _cofiIn, _depositFrom, s.feeCollector);
+        LibToken._transferFrom(_co, _coIn, _depositFrom, s.feeCollector);
 
-        uint256 fee = LibToken._getRedeemFee(_cofi, _cofiIn);
-        burnAfterFee = _cofiIn - fee;
+        uint256 fee = LibToken._getRedeemFee(_co, _coIn);
+        burnAfterFee = _coIn - fee;
 
         // Redemption fee is captured by retaining 'fee' amount.
-        LibToken._burn(_cofi, s.feeCollector, burnAfterFee);
+        LibToken._burn(_co, s.feeCollector, burnAfterFee);
 
         // Redeems assets directly to recipient (does not traverse through Diamond).
         uint256 assets = LibVault._unwrap(
-            LibToken._toUnderlyingDecimals(_cofi, burnAfterFee),
-            s.vault[_cofi],
+            LibToken._toUnderlyingDecimals(_co, burnAfterFee),
+            s.vault[_co],
             _recipient
         );
 
-        require(assets >= _underlyingOutMin, 'SupplyFacet: Slippage exceeded');
+        require(
+            assets >= LibToken._applySlippage(burnAfterFee),
+            'SupplyFacet: Slippage exceeded'
+        );
 
-        emit LibToken.Withdraw(s.underlying[_cofi], _cofiIn, _depositFrom, fee);
+        emit LibToken.Withdraw(s.underlying[_co], _coIn, _depositFrom, fee);
 
         // If enabled, rebase after to avoid dust residing at depositFrom.
-        if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
+        if (s.rebasePublic[_co] == 1) LibToken._poke(_co);
     }
 
     /*//////////////////////////////////////////////////////////////
                             ADMIN - SETTERS
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Set COFI stablecoin vars first before onboarding (refer to LibAppStorage.sol).
+    /// @dev Set COFI stablecoin vars first BEFORE onboarding (refer to LibAppStorage.sol).
     /// @dev Added decimals.
     function onboardAsset(
         address _cofi,
