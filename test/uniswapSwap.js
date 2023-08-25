@@ -173,13 +173,15 @@ describe("Test Uniswap", function() {
         )
 
         console.log("wETH bal: ", await weth.balanceOf(await uniswapSwap.getAddress()))
+        console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
 
         await uniswapSwap.unwrap(
-            // await weth.balanceOf(await uniswapSwap.getAddress())
-            // '1577337806852'
+            await weth.balanceOf(await uniswapSwap.getAddress()),
+            await owner.getAddress()
         )
 
         console.log("ETH bal: ", await ethers.provider.getBalance(await uniswapSwap.getAddress()))
+        console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
     })
 
     it("Should swap OP for wBTC", async function() {
@@ -213,17 +215,17 @@ describe("Test Uniswap", function() {
         const { uniswapSwap, wbtc, weth, owner } = await loadFixture(deploy)
 
         console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+        console.log("wETH bal: ", await weth.balanceOf(await owner.getAddress()))
 
-        await uniswapSwap.exactInput(
-            ethers.parseEther('1'),
-            WETH_Addr,
+        await uniswapSwap.exactInputETH(
             WBTC_Addr,
-            {value: ethers.parseEther('1')}
+            {value: ethers.parseEther('2')}
         )
 
         console.log("wBTC bal: ", await wbtc.balanceOf(await uniswapSwap.getAddress()))
         // Should be 0.
         console.log("wETH bal: ", await weth.balanceOf(await uniswapSwap.getAddress()))
+        console.log("wETH bal: ", await weth.balanceOf(await owner.getAddress()))
         console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
     })
 })

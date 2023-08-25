@@ -5,27 +5,31 @@ import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 
 library LibReward {
 
-    /// @notice Emitted when external points are distributed (not tied to yield).
-    ///
-    /// @param  account The recipient of the points.
-    /// @param  amount  The amount of points distributed.
-    event RewardDistributed(address indexed account, uint256 amount);
+    /**
+     * @notice Emitted when external points are distributed (not tied to yield).
+     * @param account   The recipient of the points.
+     * @param points    The amount of points distributed.
+     */
+    event RewardDistributed(address indexed account, uint256 points);
 
-    /// @notice Emitted when a referral is executed.
-    ///
-    /// @param  referral    The account receiving the referral reward.
-    /// @param  account     The account using the referral.
-    /// @param  amount      The amount of points distributed to the referral account.
-    event Referral(address indexed referral, address indexed account, uint256 amount);
+    /**
+     * @notice Emitted when a referral is executed.
+     * @param referral  The referral account.
+     * @param account   The account using the referral.
+     * @param points    The amount of points distributed to the referral account.
+     */
+    event Referral(address indexed referral, address indexed account, uint256 points);
 
-    /// @notice Distributes rewards not tied to yield.
-    ///
-    /// @param  _account    The recipient.
-    /// @param  _points     The amount of points distributed.
+    /**
+     * @notice Distributes points not tied to yield.
+     * @param _account  The account receiving points.
+     * @param _points   The amount of points distributed.
+     */
     function _reward(
         address _account,
         uint256 _points
-    ) internal {
+    )   internal
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         s.XPC[_account] += _points;
@@ -52,8 +56,6 @@ library LibReward {
     }
 
     /// @notice Reward distributed for each referral.
-    ///
-    /// @param  _referral   The referral account.
     function _referReward(
         address _referral
     ) internal {

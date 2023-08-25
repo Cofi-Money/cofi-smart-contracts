@@ -66,20 +66,30 @@ contract UniswapSwap {
         }));
     }
 
+    function exactInputETH(
+        address _to
+    ) external payable returns (uint256 amountOut) {
+
+        return UNISWAP_V3_ROUTER.exactInput{value: msg.value}(ISwapRouter.ExactInputParams({
+            path: path[address(WETH)][_to],
+            recipient: address(this),
+            deadline: block.timestamp + wait,
+            amountIn: msg.value,
+            amountOutMinimum: getAmountOutMin(msg.value, address(WETH), _to)
+        }));
+    }
+
     // Diamond has this already.
     fallback() external payable {}
 
     function unwrap(
-        // uint256 _amountIn        
-    ) external
-    //  returns (uint256 ETHOut) 
-     {
-
-        // ERC20(address(WETH)).approve(address(WETH), _amountIn);
-        console.log('bal: ', WETH.balanceOf(address(this)));
-        WETH.withdraw(WETH.balanceOf(address(this)));
-
-        // return address(this).balance;
+        uint256 _amountIn,
+        address _recipient
+    )   external payable
+    {
+        WETH.withdraw(_amountIn);
+        (bool sent, ) = payable(_recipient).call{value: _amountIn}("");
+        require(sent, "Failed to send Ether");
     }
 
     function setPath(

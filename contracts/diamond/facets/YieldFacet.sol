@@ -22,37 +22,37 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 contract YieldFacet is Modifiers {
 
     /*//////////////////////////////////////////////////////////////
-                            YIELD DISTRIBUTION
+                            Yield Distribution
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Function for updating cofi token supply relative to vault earnings.
-    ///
-    /// @param  _co The co token to distribute yield earnings for.
+    /**
+     * @notice Syncs cofi token supply to reflect vault earnings.
+     * @param _cofi The cofi token to distribute yield earnings for.
+     */
     function rebase(
-        address _co
+        address _cofi
     )   external
         returns (uint256 assets, uint256 yield, uint256 shareYield)
     {
-        if (s.rebasePublic[_co] == 0)
+        if (s.rebasePublic[_cofi] == 0)
             require(
                 s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
                 'YieldFacet: Caller not Upkeep or Admin'
             );
-        return LibToken._poke(_co);
+        return LibToken._poke(_cofi);
     }
 
     /*//////////////////////////////////////////////////////////////
-                            ASSET MIGRATION
+                            Asset Migration
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Function for migrating to a new Vault. The new Vault must support the
-    ///         same underlying token (e.g., USDC).
-    ///
-    /// @dev    Ensure that a buffer of the underlying token resides in the Diamond
-    ///         beforehand to account for slippage.
-    ///
-    /// @param  _cofi       The cofi token to migrate vault backing for.
-    /// @param  _newVault   The vault to migrate to (must adhere to ERC4626).
+    /**
+     * @notice Migrates assets to '_newVault'.
+     * @dev Ensure that a buffer of the relevant underlying token resides at this contract
+     *      before executing to account for slippage.
+     * @param _cofi     The cofi token to migrate underlying tokens for.
+     * @param _newVault The new ERC4626 vault.
+     */
     function migrate(
         address _cofi,
         address _newVault
@@ -66,12 +66,10 @@ contract YieldFacet is Modifiers {
             address(this)
         );
 
-
         /**
-         * @dev Upgraded logic to swap for new underlying {Upgrade 1}.
-         * @dev Only support single swaps for now, hence take first/only element.
-         * @dev Need to ensure that (A) SwapParams have been set for from-to mapping and;
-         * @dev (B) _to asset's decimals are already set (e.g., DAI => 18) and;
+         * @notice Logic to switch underlying token if new vault accepts another asset.
+         * @dev Need to ensure that (A) swap params have been set and;
+         * @dev (B) _to asset's decimals have been set and;
          * @dev (C) 'buffer' is set for new underlying and resides at this address and;
          * @dev (D) 'harvestable' bool is indicated for new vault if required.
          */
@@ -86,7 +84,7 @@ contract YieldFacet is Modifiers {
             s.underlying[_cofi] = IERC4626(_newVault).asset();
         }
 
-        // Approve _newVault spend for Diamond.
+        // Approve '_newVault' spend for this contract.
         SafeERC20.safeApprove(
             IERC20(IERC4626(_newVault).asset()),
             _newVault,
@@ -100,7 +98,7 @@ contract YieldFacet is Modifiers {
         );
 
         require(
-            // Vaults use same asset, therefore same decimals.
+            /// @dev No need to convert decimals as both values denominated in same asset.
             assets <= LibVault._totalValue(_newVault),
             'YieldFacet: Vault migration slippage exceeded'
         );
@@ -120,22 +118,33 @@ contract YieldFacet is Modifiers {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            ADMIN - SETTERS
+                            Admin - Setters
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev    The buffer is an amount of underlying that resides at this contract for the
-    ///         purpose of ensuring a successful migration. This is because a rebase
-    ///         must execute to "sync" balances, which can only occur if the new supply is
-    ///         greater than the previous supply. Because withdrawals may incur slippage,
-    ///         therefore, need to overcome this.
+    /**
+     * @dev The buffer is an amount of underlying that resides at this contract for the purpose
+     *      of ensuring a successful migration. This is because a rebase must execute to "sync"
+     *      balances, which can only occur if the new supply is greater than the previous supply.
+     *      Because withdrawals may incur slippage, therefore, need to overcome this.
+     */
     function setBuffer(
-        address _cofi,
+        address _underlying,
         uint256 _buffer
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.buffer[_cofi] = _buffer;
+        s.buffer[_underlying] = _buffer;
+        return true;
+    }
+
+    function setDecimals(
+        address _underlying,
+        uint8   _decimals
+    )   external
+        returns (bool)
+    {
+        s.decimals[_underlying] = _decimals;
         return true;
     }
 
@@ -177,26 +186,24 @@ contract YieldFacet is Modifiers {
         return true;
     }
 
-    /// @notice Opts the diamond into receiving yield on holding of co tokens (which fees
-    ///         are captured in). Note that the feeCollector is a separate contract.
-    ///         By default, elect to not activate (thereby passing on yield to holders).
+    /// @notice Ops this contract into receiving yield on holding of cofi tokens.
     function rebaseOptIn(
-        address _co
+        address _cofi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptIn(_co);
+        LibToken._rebaseOptIn(_cofi);
         return true;
     }
 
     function rebaseOptOut(
-        address _co
+        address _cofi
     )   external
         onlyAdmin
         returns (bool)
     {
-        LibToken._rebaseOptOut(_co);
+        LibToken._rebaseOptOut(_cofi);
         return true;
     }
 
@@ -230,46 +237,6 @@ contract YieldFacet is Modifiers {
     {
         return s.harvestable[_vault];
     }
-
-    /*//////////////////////////////////////////////////////////////
-                            {Upgrade 1}
-                Added logic to swap underlying for cofi token
-    //////////////////////////////////////////////////////////////*/
-
-    // function setSwapParams(
-    //     address _from,
-    //     address _to,
-    //     uint256 _slippage,
-    //     uint256 _wait
-    // )   external
-    //     returns (bool)
-    // {
-    //     s.swapParams[_from][_to].slippage = _slippage;
-    //     s.swapParams[_from][_to].wait = _wait;
-    //     return true;
-    // }
-
-    function setDecimals(
-        address _underlying,
-        uint8   _decimals
-    )   external
-        returns (bool)
-    {
-        s.decimals[_underlying] = _decimals;
-        return true;
-    }
-
-    // function getSwapParams(
-    //     address _from,
-    //     address _to
-    // )   external view
-    //     returns (uint256, uint256)
-    // {
-    //     return (
-    //         s.swapParams[_from][_to].slippage,
-    //         s.swapParams[_from][_to].wait
-    //     );
-    // }
 
     function getDecimals(
         address _underlying

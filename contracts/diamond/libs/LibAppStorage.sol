@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import { LibDiamond } from '.././core/libs/LibDiamond.sol';
 
 /*//////////////////////////////////////////////////////////////
-                        REWARD TYPES
+                        Reward Types
 //////////////////////////////////////////////////////////////*/
 
 struct YieldPointsCapture {
@@ -19,25 +19,21 @@ struct RewardStatus {
 }
 
 /*//////////////////////////////////////////////////////////////
-                            SWAP TYPES
+                        Swap Types
 //////////////////////////////////////////////////////////////*/
 
 enum SwapProtocol {
     NonExistent,
+    /// @dev + UniswapV2. Uses 'route' mapping.
     VelodromeV2,
+    /// @dev Uses 'path' mapping.
     UniswapV3
 }
 
-struct VeloRoute {
+struct Route {
     address mid;
-    /// @dev If mid = address(0): [false, false] => [false, X] (i.e., 2nd arg does not matter).
+    /// @dev If mid = address(0): [false, false] => [false, X] (i.e., 2nd index does not matter).
     bool[2] stable;
-}
-
-struct UniRoute {
-    address mid;
-    uint24  poolFee1;
-    uint24  poolFee2;
 }
 
 struct SwapInfo {
@@ -46,7 +42,7 @@ struct SwapInfo {
 }
 
 /*//////////////////////////////////////////////////////////////
-                    LOAN STRUCTS {Update ?}
+                    Loan Types {Update ?}
 //////////////////////////////////////////////////////////////*/
 
 // struct Safe {
@@ -87,13 +83,15 @@ struct SwapInfo {
 struct AppStorage {
 
     /*//////////////////////////////////////////////////////////////
-                        COFI STABLECOIN PARAMS
+                        COFI Stablecoin Params
     //////////////////////////////////////////////////////////////*/
 
-    // E.g., coUSD => (20*10**18) - 1. Applies to underlying token (e.g., USDC).
+    // E.g., coUSD => (20 * 10 ** decimals of underlying) - 1.
+    // Applies to underlying token (e.g., USDC).
     mapping(address => uint256) minDeposit;
 
-    // E.g., coUSD => 20*10**18. Applies to underlyingAsset (e.g., DAI).
+    // E.g., coUSD => 20 * 10 ** decimals of underlying.
+    // Applies to underlying token (e.g., wETH).
     mapping(address => uint256) minWithdraw;
 
     // E.g., coUSD => 10bps. Applies to cofi tokens only.
@@ -105,18 +103,16 @@ struct AppStorage {
     // E.g., coUSD => 1,000bps. Applies to cofi tokens only.
     mapping(address => uint256) serviceFee;
 
-    // E.g., coUSD => 1,000,000bps (100x / 1*10**18 yield earned).
+    // E.g., coUSD => 1,000,000bps (i.e., 100 points per 1 coUSD earned).
     mapping(address => uint256) pointsRate;
 
-    // E.g., coUSD => 100 USDC. Buffer for migrations. Applies to underlyingAsset.
-    /// @dev {Upgrade 1} amends buffer mapping from cofi token to underlying token.
+    // E.g., USDC => 100. Buffer for migrations.
     mapping(address => uint256) buffer;
 
-    // E.g., coUSD => yvDAI; fiETH => maETH; fiBTC => maBTC.
+    // E.g., coUSD => yvDAI.
     mapping(address => address) vault;
 
-    // E.g., coUSD => USDC; ETHFI => wETH; BTCFI => wBTC.
-    // Need to specify as vault may use different underlying (e.g., USDC-LP).
+    // E.g., coUSD => DAI.
     mapping(address => address) underlying;
 
     // E.g., coUSD => 1.
@@ -128,14 +124,14 @@ struct AppStorage {
     // Decimals of the underlying asset (e.g., USDC => 6).
     mapping(address => uint8)   decimals;
 
-    // E.g., coUSD => 0.
+    // Indicates if rebases can be called by any account. E.g., coUSD => 0.
     mapping(address => uint8)   rebasePublic;
 
-    // If rebase operation should harvest vault beforehand.
+    // Indicated if rebase operation should harvest vault beforehand (e.g., swap reward for want).
     mapping(address => uint8)   harvestable;
 
     /*//////////////////////////////////////////////////////////////
-                            REWARDS PARAMS
+                            Rewards Params
     //////////////////////////////////////////////////////////////*/
 
     // Reward for first-time depositors. Setting to 0 deactivates it.
@@ -150,11 +146,11 @@ struct AppStorage {
     // E.g., Alice => coUSD => YieldPointsCapture.
     mapping(address => mapping(address => YieldPointsCapture)) YPC;
 
-    // External points capture (to yield earnings). Maps to account only (not cofi tokens).
+    // External points capture (to yield earnings). E.g., Alice => 10,000.
     mapping(address => uint256) XPC;
 
     /*//////////////////////////////////////////////////////////////
-                            ACCESS PARAMS
+                            Account Params
     //////////////////////////////////////////////////////////////*/
 
     mapping(address => uint8)   isWhitelisted;
@@ -175,17 +171,17 @@ struct AppStorage {
     uint8 reentrantStatus;
 
     /*//////////////////////////////////////////////////////////////
-                        SWAP PARAMS {Update 1}
+                            Swap Params
     //////////////////////////////////////////////////////////////*/
 
     // E.g., USDC => DAI => SwapRouter.
     mapping(address => mapping(address => SwapProtocol)) swapProtocol;
 
-    // E.g., USDC => DAI => VeloRoute.
-    mapping(address => mapping(address => VeloRoute)) veloRoute;
+    // E.g., USDC => DAI => Route. UniswapV2 (+ VelodromeV2) compatibility.
+    mapping(address => mapping(address => Route)) route;
 
-    // E.g., USDC => DAI => VeloRoute.
-    mapping(address => mapping(address => UniRoute)) uniRoute;
+    // E.g., USDC => DAI => path. UniswapV3 compatibility.
+    mapping(address => mapping(address => bytes)) path;
 
     // E.g., USDC => DAI => SwapInfo.
     mapping(address => mapping(address => SwapInfo)) swapInfo;
@@ -199,7 +195,7 @@ struct AppStorage {
     uint256 defaultWait;
 
     /*//////////////////////////////////////////////////////////////
-                        LOAN PARAMS {Update ?}
+                        Loan Params {Update ?}
     //////////////////////////////////////////////////////////////*/
 
     // // E.g., Alice => coUSD => Safe.
@@ -256,15 +252,6 @@ contract Modifiers {
 
     modifier redeemEnabled(address _fi) {
         require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for cofi token');
-        _;
-    }
-
-    modifier isSupportedSwap(address _from, address _to) {
-        /// @dev Enable enter/exit functions if requesting same token as udnerlying for user convenience.
-        /// @dev Enter/exit functions check _from == _to, so swap of same token will not execute.
-        if (_from != _to) {
-            // require(s.veloRoute[_from][_to].enabled == 1, 'Swap order not supported');
-        }
         _;
     }
 

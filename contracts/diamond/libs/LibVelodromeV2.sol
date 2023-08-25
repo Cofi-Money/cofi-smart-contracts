@@ -3,15 +3,9 @@ pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { IRouter } from '../interfaces/IRouter.sol';
-import { PercentageMath } from './external/PercentageMath.sol';
-import { FixedPointMath } from './external/FixedPointMath.sol';
-import { StableMath } from './external/StableMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 
 library LibVelodromeV2 {
-
-    event VelodromeV2Swap(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut);
 
     IRouter constant VELODROME_V2_ROUTER =
         IRouter(0xa062aE8A9c5e11aaA026fc2670B0D65cCc8B2858);
@@ -82,7 +76,7 @@ library LibVelodromeV2 {
             _amountIn,
             _amountOutMin,
             routes,
-            _recipient, // For some reason, fails if set to this address.
+            _recipient,
             block.timestamp + s.swapInfo[_from][WETH].wait == 0 ? s.defaultWait : s.swapInfo[_from][WETH].wait
         );
     }
@@ -95,19 +89,19 @@ library LibVelodromeV2 {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        routes = new IRouter.Route[](s.veloRoute[_from][_to].mid == address(0) ? 1 : 2);
+        routes = new IRouter.Route[](s.route[_from][_to].mid == address(0) ? 1 : 2);
         routes[0] = IRouter.Route({
             from: _from,
-            to: s.veloRoute[_from][_to].mid == address(0) ? _to : s.veloRoute[_from][_to].mid,
-            stable: s.veloRoute[_from][_to].stable[0],
+            to: s.route[_from][_to].mid == address(0) ? _to : s.route[_from][_to].mid,
+            stable: s.route[_from][_to].stable[0],
             factory: VELODROME_V2_FACTORY
         });
 
-        if (s.veloRoute[_from][_to].mid != address(0)) {
+        if (s.route[_from][_to].mid != address(0)) {
             routes[1] = IRouter.Route({
-                from: s.veloRoute[_from][_to].mid,
+                from: s.route[_from][_to].mid,
                 to: _to,
-                stable: s.veloRoute[_from][_to].stable[1],
+                stable: s.route[_from][_to].stable[1],
                 factory: VELODROME_V2_FACTORY
             });
         }

@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage, SwapProtocol } from './LibAppStorage.sol';
 import { LibVelodromeV2 } from './LibVelodromeV2.sol';
+import { LibUniswapV3 } from './LibUniswapV3.sol';
 import { IWETH } from '../interfaces/IWETH.sol';
 import { PercentageMath } from './external/PercentageMath.sol';
 import { FixedPointMath } from './external/FixedPointMath.sol';
@@ -16,7 +17,17 @@ library LibSwap {
     using StableMath for uint256;
     using StableMath for int256;
 
-    address constant WETH = 0x4200000000000000000000000000000000000006;
+    /**
+     * @notice Emitted when a swap operation is executed.
+     * @param from      The asset being swapped.
+     * @param to        The asset being received.
+     * @param amountIn  The amount of 'from' assets being swapped.
+     * @param amountOut The amount of 'to' assets received.
+     * @param recipient The account receiving 'to' assets. (For system entry, will always be this contract, and for exit, user).
+     */
+    event Swap(address indexed from, address indexed to, uint256 amountIn, uint256 amountOut, address indexed recipient);
+
+    IWETH constant WETH = IWETH(0x4200000000000000000000000000000000000006);
 
     /**
      * @dev Swaps from this contract (not '_depositFrom').
@@ -46,11 +57,19 @@ library LibSwap {
             );
             amountOut = amounts[amounts.length - 1];
         } else if (s.swapProtocol[_from][_to] == SwapProtocol(2)) {
-            // Insert.
+            amountOut = LibUniswapV3._exactInput(
+                _amountIn,
+                _getAmountOutMin(_amountIn, _from, _to),
+                _from,
+                _to,
+                _recipient
+            );
         }
+        emit Swap(_from, _to, _amountIn, amountOut, _recipient);
     }
 
     /**
+     * @dev Used for entering the app ONLY, therefore recipient is this address.
      * @dev Swaps ETH directly from msg.sender (not this contract).
      * @param _to The token to receive.
      */
@@ -61,21 +80,31 @@ library LibSwap {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        require(s.swapProtocol[WETH][_to] > SwapProtocol(0), 'LibSwap: Swap protocol not set');
+        // If wrapping.
+        if (_to == address(WETH)) {
+            WETH.deposit{value: msg.value}();
+            return (msg.value);
+        }
 
-        if (s.swapProtocol[WETH][_to] == SwapProtocol(1)) {
+        require(s.swapProtocol[address(WETH)][_to] > SwapProtocol(0), 'LibSwap: Swap protocol not set');
+
+        if (s.swapProtocol[address(WETH)][_to] == SwapProtocol(1)) {
             uint256[] memory amounts = LibVelodromeV2._swapExactETHForTokens(
-                _getAmountOutMin(msg.value, WETH, _to),
+                _getAmountOutMin(msg.value, address(WETH), _to),
                 _to
             );
             amountOut = amounts[amounts.length - 1];
-        } else if (s.swapProtocol[WETH][_to] == SwapProtocol(2)) {
-            // Insert.
+        } else if (s.swapProtocol[address(WETH)][_to] == SwapProtocol(2)) {
+            amountOut = LibUniswapV3._exactInputETH(
+                _getAmountOutMin(msg.value, address(WETH), _to),
+                _to
+            );
         }
+        emit Swap(address(WETH), _to, msg.value, amountOut, address(this));
     }
 
     /**
-     * @dev Token is transferred directly from DEX to recipient (does not traverse through this contract).
+     * @dev Used for exiting the app ONLY, therefore recipient of swap operation is user.
      * @param _amountIn     The amount of '_from' token to swap.
      * @param _from         The token to swap.
      * @param _recipient    The receiver of ETH.
@@ -89,20 +118,40 @@ library LibSwap {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        require(s.swapProtocol[_from][WETH] > SwapProtocol(0), 'LibSwap: Swap protocol not set');
+        // If unwrapping.
+        if (_from == address(WETH)) {
+            WETH.withdraw(_amountIn);
+            (bool sent, ) = payable(_recipient).call{value: _amountIn}("");
+            require(sent, 'LibSwap: Failed to send Ether');
+            amountOut = _amountIn;
+        }
 
-        if (s.swapProtocol[_from][WETH] == SwapProtocol(1)) {
+        require(s.swapProtocol[_from][address(WETH)] > SwapProtocol(0), 'LibSwap: Swap protocol not set');
+
+        if (s.swapProtocol[_from][address(WETH)] == SwapProtocol(1)) {
             uint256[] memory amounts = LibVelodromeV2._swapExactTokensForETH(
                 _amountIn,
-                _getAmountOutMin(_amountIn, _from, WETH),
+                _getAmountOutMin(_amountIn, _from, address(WETH)),
                 _from,
                 _recipient
             );
             amountOut = amounts[amounts.length - 1];
-        } else if (s.swapProtocol[_from][WETH] == SwapProtocol(2)) {
-            // Insert.
-            // Unwrap.
+        } else if (s.swapProtocol[_from][address(WETH)] == SwapProtocol(2)) {
+            // First, get wETH from ERC20.
+            amountOut = LibUniswapV3._exactInput(
+                _amountIn,
+                _getAmountOutMin(_amountIn, _from, address(WETH)),
+                _from,
+                address(WETH),
+                address(this)
+            );
+            // Second, unwrap.
+            WETH.withdraw(amountOut);
+            // Transfer Ether.
+            (bool sent, ) = payable(_recipient).call{value: _amountIn}("");
+            require(sent, 'LibSwap: Failed to send Ether');
         }
+        emit Swap(_from, address(WETH), _amountIn, amountOut, _recipient);
     }
 
     /**

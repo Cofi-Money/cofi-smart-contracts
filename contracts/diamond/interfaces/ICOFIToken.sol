@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 /// @author The Stoa Corporation Ltd.
 /// @title  COFI Token Interface
-/// @notice Interface for executing functions on Fi tokens.
+/// @notice Interface for executing functions on cofi rebasing tokens.
 interface ICOFIToken {
 
     function mint(address _account, uint256 _amount) external;
