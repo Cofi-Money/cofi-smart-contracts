@@ -106,6 +106,101 @@ contract SupplyFacet is Modifiers {
         emit LibToken.Deposit(s.underlying[_cofi], underlyingOut, _depositFrom, fee);
     }
 
+    // function tokensToCofi(
+    //     uint256 _tokensIn,
+    //     address _token,
+    //     address _cofi,
+    //     address _depositFrom,
+    //     address _recipient,
+    //     address _referral
+    // )   external
+    //     nonReentrant
+    //     returns (uint256 mintAfterFee)
+    // {
+    //     // Transfer tokens to this contract first for swap op.
+    //     LibToken._transferFrom(
+    //         _token,
+    //         _tokensIn,
+    //         _depositFrom,
+    //         address(this)
+    //     );
+
+    //     address underlying = IERC4626(s.vaults[_cofi][0].vault).asset();
+    //     uint256 underlyingOut;
+    //     // Convert to underlying of asset used by first vault.
+    //     if (_token != underlying) {
+    //         underlyingOut = LibSwap._swapERC20ForERC20(
+    //             _tokensIn,
+    //             _token,
+    //             s.underlying[_cofi],
+    //             address(this)
+    //         );
+    //     }
+
+    //     uint256 assets = LibToken._toCofiDecimals(
+    //         underlying,
+    //         LibVault._getAssets(
+    //             LibVault._wrap(
+    //                 LibToken._applyPercent(underlyingOut, s.vaults[_cofi][0].allocation),
+    //                 s.vaults[_cofi][0].vault
+    //             ),
+    //             s.vaults[_cofi][0].vault
+    //         )
+    //     );
+    //     uint256 round;
+    //     uint256 spent = LibToken._applyPercent(underlyingOut, s.vaults[_cofi][0].allocation);
+    //     uint256 spentAllocation = s.vaults[_cofi][0].allocation;
+
+    //     for (uint i = 1; i < s.vaults[_cofi].length; i++) {
+    //         if (spentAllocation < 10_000) {
+    //             if (underlying == IERC4626(s.vaults[_cofi][i].vault).asset()) {
+    //                 assets += LibToken._toCofiDecimals(
+    //                     underlying,
+    //                     LibVault._getAssets(
+    //                         LibVault._wrap(
+    //                             LibToken._applyPercent(underlyingOut, s.vaults[_cofi][i].allocation),
+    //                             s.vaults[_cofi][i].vault
+    //                         ),
+    //                         s.vaults[_cofi][i].vault
+    //                     )
+    //                 );
+    //             } else {
+    //                 // Swap first underlying for second underlying.
+    //                 underlyingOut = LibSwap._swapERC20ForERC20(
+    //                     _tokensIn,
+    //                     _token,
+    //                     s.underlying[_cofi],
+    //                     address(this)
+    //                 );
+    //                 /// @dev Important that 10,000 is a fatcor of vault's allocation.
+    //                 uint256 allocationScaled = 10_000 / s.vaults[_cofi][i].allocation * 10_000;
+    //                 // Wrap
+    //                 assets += LibToken._toCofiDecimals(
+    //                     underlying,
+    //                     LibVault._getAssets(
+    //                         LibVault._wrap(
+    //                             LibToken._applyPercent(underlyingOut, s.vaults[_cofi][i].allocation),
+    //                             s.vaults[_cofi][i].vault
+    //                         ),
+    //                         s.vaults[_cofi][i].vault
+    //                     )
+    //                 );
+    //             }
+    //             spentAllocation += s.vaults[_cofi][i].allocation;
+    //         } else {
+    //             break;
+    //         }
+    //     }
+
+    //     /**
+    //      * Vaults[] storage requirements:
+    //      * - Ensure all vaults that use the same asset are next to each other.
+    //      * - Ensure allocation across all vaults adds up to 10,000 (100%).
+    //      * E.g., [wsoUSDC, 2,500], [wyvUSDC, 2,500], [wsoDAI, 2,500], [wsoUSDC, 2,500].
+    //      */
+
+    // }
+
     /**
      * @notice Enables user to exit app and receive native Ether.
      * @param _cofiIn       The amount of cofi tokens to redeem.
@@ -224,7 +319,7 @@ contract SupplyFacet is Modifiers {
             s.vault[_cofi],
             _underlyingIn
         );
-
+        
         uint256 assets = LibToken._toCofiDecimals(
             s.underlying[_cofi],
             LibVault._getAssets(
@@ -243,6 +338,7 @@ contract SupplyFacet is Modifiers {
 
         fee = LibToken._getMintFee(_cofi, assets);
         mintAfterFee = assets - fee;
+        console.log('mintAfterFee: %s', mintAfterFee);
 
         // Capture mint fee in co tokens.
         if (fee > 0) LibToken._mint(_cofi, s.feeCollector, fee);

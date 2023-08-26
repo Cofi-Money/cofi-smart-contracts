@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { IRouter } from '../interfaces/IRouter.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'hardhat/console.sol';
 
 library LibVelodromeV2 {
 
@@ -53,7 +54,7 @@ library LibVelodromeV2 {
             _amountOutMin,
             routes,
             address(this),
-            block.timestamp + s.swapInfo[WETH][_to].wait == 0 ? s.defaultWait : s.swapInfo[WETH][_to].wait
+            block.timestamp + (s.swapInfo[WETH][_to].wait == 0 ? s.defaultWait : s.swapInfo[WETH][_to].wait)
         );
     }
 
@@ -105,5 +106,15 @@ library LibVelodromeV2 {
                 factory: VELODROME_V2_FACTORY
             });
         }
+    }
+
+    function _getAmountsOut(
+        uint256 _amountIn,
+        address _from,
+        address _to
+    )   internal view
+        returns (uint256[] memory amounts)
+    {
+        return VELODROME_V2_ROUTER.getAmountsOut(_amountIn, _getRoutes(_from, _to));
     }
 }

@@ -2,9 +2,14 @@
 pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
+import { LibToken } from './LibToken.sol';
+import { StableMath } from './external/StableMath.sol';
+import { PercentageMath } from './external/PercentageMath.sol';
 import { IERC4626 } from '.././interfaces/IERC4626.sol';
 
 library LibVault {
+    using PercentageMath for uint256;
+    using StableMath for uint256;
 
     /*//////////////////////////////////////////////////////////////
                                 Events
@@ -133,4 +138,46 @@ library LibVault {
     {
         return IERC4626(_vault).maxWithdraw(address(this));
     }
+
+    // function _getAllocations(
+    //     address _cofi
+    // )   internal view
+    //     returns (uint256[] memory)
+    // {
+    //     AppStorage storage s = LibAppStorage.diamondStorage();
+
+    //     // Determine allocation of underlying assets.
+    //     address[] memory assets = new address[](s.vaults[_cofi].length);
+
+    // }
+
+    // function _getDeficit(
+    //     address _cofi
+    // )   internal view
+    //     returns (address target)
+    // {
+    //     AppStorage storage s = LibAppStorage.diamondStorage();
+
+    //     uint256[] memory assets = new uint256[](s.vaults[_cofi].length);
+    //     uint256 assetsTotal;
+
+    //     for(uint i = 0; i < s.vaults[_cofi].length; i++) {
+    //         assets[i] = LibToken._toCofiDecimals(
+    //             IERC4626(s.vaults[_cofi][i].vault).asset(),
+    //             _totalValue(s.vaults[_cofi][i].vault)
+    //         );
+    //         assetsTotal += assets[i];
+    //     }
+
+    //     uint256[] memory allocations = new uint256[](assets.length);
+    //     uint256 allocation;
+    //     uint256 targetAllocation;
+    //     target = s.vaults[_cofi][0].vault;
+
+    //     // Return whichever is the smallest relative to target allocation.
+    //     for(uint i = 1; i < assets.length; i++) {
+    //         allocation = assets[i].divPrecisely(assetsTotal);
+    //         targetAllocation = assets[i].percentMul(s.vaults[_cofi][i].allocation);
+    //     }
+    // }
 }

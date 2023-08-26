@@ -6,7 +6,7 @@ import { IERC165 } from './core/interfaces/IERC165.sol';
 import { IDiamondCut } from './core/interfaces/IDiamondCut.sol';
 import { IDiamondLoupe } from './core/interfaces/IDiamondLoupe.sol';
 import { IERC173 } from './core/interfaces/IERC173.sol';
-import { AppStorage } from './libs/LibAppStorage.sol';
+import { SwapProtocol, AppStorage } from './libs/LibAppStorage.sol';
 import { LibToken } from './libs/LibToken.sol';
 
 contract InitDiamond {
@@ -19,9 +19,6 @@ contract InitDiamond {
         address     vUSDC;  // vault share token [USD]
         address     vETH;   // vault share token [ETH]
         address     vBTC;   // vault share token [BTC]
-        address     USDC;   // underlying token [USD]
-        address     wETH;   // underlying token [ETH]
-        address     wBTC;   // underlying token [BTC]
         // msg.sender is Admin + Whiteslited by default, so do not need to include.
         address[]   roles;
     }
@@ -36,9 +33,14 @@ contract InitDiamond {
         ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
         ds.supportedInterfaces[type(IERC173).interfaceId]       = true;
 
-        s.underlying[_args.coUSD] = _args.USDC;
-        s.underlying[_args.coETH] = _args.wETH;
-        s.underlying[_args.coBTC] = _args.wBTC;
+        address USDC = 0x7F5c764cBc14f9669B88837ca1490cCa17c31607;
+        address DAI = 0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1;
+        address WETH = 0x4200000000000000000000000000000000000006;
+        address WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
+
+        s.underlying[_args.coUSD] = USDC;
+        s.underlying[_args.coETH] = WETH;
+        s.underlying[_args.coBTC] = WBTC;
 
         // Set min deposit/withdraw values (target $20).
         s.minDeposit[_args.coUSD]   = 1e6 - 1; // 1 USDC [6 digits].
@@ -53,9 +55,9 @@ contract InitDiamond {
         s.vault[_args.coBTC]    = _args.vBTC;
 
         // Only YearnV2 and CompoundV2 (Sonne) harvestable to begin with.
-        s.harvestable[s.vault[_args.coUSD]] = 1;
-        // s.harvestable[s.vault[_args.coETH]] = 1;
-        // s.harvestable[s.vault[_args.coBTC]] = 1;
+        s.harvestable[_args.vUSDC]  = 1;
+        s.harvestable[_args.vETH]   = 1;
+        s.harvestable[_args.vBTC]   = 1;
 
         // Set mint enabled.
         s.mintEnabled[_args.coUSD]  = 1;
@@ -99,16 +101,64 @@ contract InitDiamond {
         s.initReward    = 100*10**18;   // 100 Points for initial deposit.
         s.referReward   = 10*10**18;    // 10 Points each for each referral.
 
-        s.decimals[_args.USDC] = 6;
-        s.decimals[_args.wETH] = 18;
-        s.decimals[_args.wBTC] = 8;
+        s.decimals[USDC] = 6;
+        s.decimals[WETH] = 18;
+        s.decimals[WBTC] = 8;
 
         // 10 USDC buffer for migrations.
-        s.buffer[_args.coUSD]   = 10*10**uint256(s.decimals[_args.USDC]);
+        s.buffer[_args.coUSD]   = 10*10**uint256(s.decimals[USDC]);
         // 0.01 wETH buffer for migrations.
-        s.buffer[_args.coETH]   = 1*10**uint256((s.decimals[_args.wETH] - 2));
+        s.buffer[_args.coETH]   = 1*10**uint256((s.decimals[WETH] - 2));
         // 0.001 wBTC buffer for migrations.
-        s.buffer[_args.coBTC]   = 1*10**uint256((s.decimals[_args.wBTC] - 3));
+        s.buffer[_args.coBTC]   = 1*10**uint256((s.decimals[WBTC] - 3));
+
+        // Set swap params
+        s.defaultSlippage = 25; // 0.25%
+        s.defaultWait = 12; // 12 seconds
+
+        // ETH (=> wETH) => USDC and back.
+        // UniswapV3 is preferred option here.
+        s.path[WETH][USDC] = abi.encodePacked(
+            WETH,
+            uint24(500),
+            USDC
+        );
+        s.path[USDC][WETH] = abi.encodePacked(
+            WBTC,
+            uint24(500),
+            WETH
+        );
+        // No params to set so can simply just set to VelodromeV2.
+        s.swapProtocol[WETH][USDC] = SwapProtocol(2);
+        s.swapProtocol[USDC][WETH] = SwapProtocol(2);
+
+        // // ETH (=> wETH => USDC) => DAI and back.
+        // s.route[WETH][DAI].mid = USDC;
+        // s.route[DAI][WETH].mid = USDC;
+        // s.route[WETH][DAI].stable = [false, true];
+        // s.route[DAI][WETH].stable = [true, false];
+        // s.swapProtocol[WETH][DAI] = SwapProtocol(1);
+        // s.swapProtocol[DAI][WETH] = SwapProtocol(1);
+
+        // ETH (=> wETH) => wBTC and back.
+        s.path[WETH][WBTC] = abi.encodePacked(
+            WETH,
+            uint24(500),
+            WBTC
+        );
+        s.path[WETH][WBTC] = abi.encodePacked(
+            WBTC,
+            uint24(500),
+            WETH
+        );
+        // Now needed params are set can set swap protocol.
+        s.swapProtocol[WETH][WBTC] = SwapProtocol(2);
+        s.swapProtocol[WBTC][WETH] = SwapProtocol(2);
+
+        s.priceFeed[USDC] = 0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3;
+        s.priceFeed[DAI] = 0x8dBa75e83DA73cc766A7e5a0ee71F656BAb470d6;
+        s.priceFeed[WETH] = 0x13e3Ee699D1909E989722E753853AE30b17e08c5;
+        s.priceFeed[WBTC] = 0xD702DD976Fb76Fffc2D3963D037dfDae5b04E593;
 
         s.isAdmin[msg.sender] = 1;
         s.isWhitelisted[msg.sender] = 1;
@@ -119,8 +169,8 @@ contract InitDiamond {
             s.isWhitelisted[_args.roles[i]] = 1;
         }
 
-        // Set accounts that can whitelist
-        // First account can whitelist but is not admin
+        // Set accounts that can whitelist.
+        // First account can whitelist but is not admin.
         for(uint i = 0; i < _args.roles.length; ++i) {
             s.isWhitelister[_args.roles[i]] = 1;
         }

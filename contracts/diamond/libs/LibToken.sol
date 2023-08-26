@@ -182,8 +182,8 @@ library LibToken {
         address _cofi,
         address _from,
         uint256 _amount
-    ) internal {
-
+    )   internal
+    {
         ICOFIToken(_cofi).lock(_from, _amount);
     }
 
@@ -192,8 +192,8 @@ library LibToken {
         address _cofi,
         address _from,
         uint256 _amount
-    ) internal {
-
+    )   internal
+    {
         ICOFIToken(_cofi).unlock(_from, _amount);
     }
 
@@ -250,8 +250,8 @@ library LibToken {
         uint256 _amount,
         uint256 _yield,
         uint256 _fee
-    ) internal {
-        
+    )   internal
+    {    
         ICOFIToken(_cofi).changeSupply(_amount);
         emit TotalSupplyUpdated(
             _cofi,
@@ -269,8 +269,9 @@ library LibToken {
      */
     function _getRebasingCreditsPerToken(
         address _cofi
-    ) internal view returns (uint256) {
-
+    )   internal view
+        returns (uint256)
+    {
         return ICOFIToken(_cofi).rebasingCreditsPerTokenHighres();
     }
 
@@ -283,7 +284,9 @@ library LibToken {
     function _getMintFee(
         address _cofi,
         uint256 _amount
-    ) internal view returns (uint256) {
+    )   internal view
+        returns (uint256)
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.percentMul(s.mintFee[_cofi]);
@@ -298,7 +301,9 @@ library LibToken {
     function _getRedeemFee(
         address _cofi,
         uint256 _amount
-    ) internal view returns (uint256) {
+    )   internal view
+        returns (uint256)
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.percentMul(s.redeemFee[_cofi]);
@@ -310,8 +315,8 @@ library LibToken {
      */
     function _rebaseOptIn(
         address _cofi
-    ) internal {
-
+    )   internal
+    {
         ICOFIToken(_cofi).rebaseOptIn();
     }
 
@@ -321,8 +326,8 @@ library LibToken {
      */
     function _rebaseOptOut(
         address _cofi
-    ) internal {
-        
+    )   internal
+    {    
         ICOFIToken(_cofi).rebaseOptOut();
     }
 
@@ -334,8 +339,9 @@ library LibToken {
     function _getYieldEarned(
         address _account,
         address _cofi
-    ) internal view returns (uint256) {
-        
+    )   internal view
+        returns (uint256)
+    {    
         return ICOFIToken(_cofi).getYieldEarned(_account);
     }
 
@@ -347,7 +353,9 @@ library LibToken {
     function _toCofiDecimals(
         address _underlying,
         uint256 _amount
-    ) internal view returns (uint256) {
+    )   internal view
+        returns (uint256)
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.scaleBy(18, uint256(s.decimals[_underlying]));
@@ -361,22 +369,35 @@ library LibToken {
     function _toUnderlyingDecimals(
         address _cofi,
         uint256 _amount
-    ) internal view returns (uint256) {
+    )   internal view
+        returns (uint256)
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.scaleBy(uint256(s.decimals[s.underlying[_cofi]]), 18);
     }
 
     /**
-     * @notice Applies default slippage, used for depositing to and redeeming from
-     * ERC4626 vaults.
+     * @notice  Applies default slippage, used for depositing to and redeeming from
+     *          ERC4626 vaults.
      * @param _amount The amount of tokens to apply slippage for (cofi or underlying).
      */
     function _applySlippage(
         uint256 _amount
-    ) internal view returns (uint256) {
+    )   internal view
+        returns (uint256)
+    {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.percentMul(1e4 - s.defaultSlippage);
+    }
+
+    function _applyPercent(
+        uint256 _amount,
+        uint256 _percent
+    )   internal pure
+        returns (uint256)
+    {
+        return _amount.percentMul(_percent);
     }
 }

@@ -29,9 +29,9 @@ library LibUniswapV3 {
         return UNISWAP_V3_ROUTER.exactInput(ISwapRouter.ExactInputParams({
             path: s.path[_from][_to],
             recipient: _recipient,
-            deadline: block.timestamp + s.swapInfo[_from][_to].wait == 0 ?
+            deadline: block.timestamp + (s.swapInfo[_from][_to].wait == 0 ?
                 s.defaultWait :
-                s.swapInfo[_from][_to].wait,
+                s.swapInfo[_from][_to].wait),
             amountIn: _amountIn,
             amountOutMinimum: _amountOutMin
         }));
@@ -48,9 +48,9 @@ library LibUniswapV3 {
         return UNISWAP_V3_ROUTER.exactInput{value: msg.value}(ISwapRouter.ExactInputParams({
             path: s.path[address(WETH)][_to],
             recipient: address(this),
-            deadline: block.timestamp + s.swapInfo[WETH][_to].wait == 0 ?
+            deadline: block.timestamp + (s.swapInfo[WETH][_to].wait == 0 ?
                 s.defaultWait :
-                s.swapInfo[WETH][_to].wait,
+                s.swapInfo[WETH][_to].wait),
             amountIn: msg.value,
             amountOutMinimum: _amountOutMin
         }));

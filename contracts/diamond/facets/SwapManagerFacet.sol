@@ -34,6 +34,31 @@ contract SwapManagerFacet is Modifiers {
         onlyAdmin
         returns (bool)
     {
+        require(
+            s.swapProtocol[_tokenA][_tokenB] != _swapProtocol,
+            'SwapManagerFacet: Requested swap protocol already set'
+        );
+        if (s.swapProtocol[_tokenA][_tokenB] == SwapProtocol(0)) {
+            s.supportedSwaps[_tokenA].push(_tokenB);
+            // As setting reverse route.
+            s.supportedSwaps[_tokenB].push(_tokenA);
+            // If revoking swaps for token pair entirely.
+        } else if (_swapProtocol == SwapProtocol(0)) {
+            for (uint i = 0; i < s.supportedSwaps[_tokenA].length; i++) {
+                if (s.supportedSwaps[_tokenA][i] == _tokenB) {
+                    s.supportedSwaps[_tokenA][i] =
+                        s.supportedSwaps[_tokenA][s.supportedSwaps[_tokenA].length - 1];
+                    s.supportedSwaps[_tokenA].pop();
+                }
+            }
+            for (uint i = 0; i < s.supportedSwaps[_tokenB].length; i++) {
+                if (s.supportedSwaps[_tokenB][i] == _tokenA) {
+                    s.supportedSwaps[_tokenB][i] =
+                        s.supportedSwaps[_tokenB][s.supportedSwaps[_tokenB].length - 1];
+                    s.supportedSwaps[_tokenB].pop();
+                }
+            }
+        }
         s.swapProtocol[_tokenA][_tokenB] = _swapProtocol;
         s.swapProtocol[_tokenB][_tokenA] = _swapProtocol;
         return true;
@@ -177,6 +202,14 @@ contract SwapManagerFacet is Modifiers {
         return s.swapProtocol[_tokenA][_tokenB];
     }
 
+    function getSupportedSwaps(
+        address _token
+    )   external view
+        returns (address[] memory)
+    {
+        return s.supportedSwaps[_token];
+    }
+
     function getRoute(
         address _tokenA,
         address _tokenB
@@ -235,22 +268,24 @@ contract SwapManagerFacet is Modifiers {
         return s.priceFeed[_token];
     }
 
+    /// @dev "Minimum amount received" should be displayed to the user on the front-end.
     function getAmountOutMin(
         uint256 _amountIn,
         address _from,
         address _to
     )   external view
-        returns (uint256)
+        returns (uint256 amountOutMin)
     {
         return LibSwap._getAmountOutMin(_amountIn, _from, _to);
     }
 
-    function getLatestPrice(
+    /// @notice Returns the price of '_from' denominated in '_to'.
+    function getFromToLatestPrice(
         address _from,
         address _to
     )   external view
-        returns (uint256 fromUSD, uint256 toUSD, uint256 fromTo)
+        returns (uint256 fromTo)
     {
-        return LibSwap._getLatestPrice(_from, _to);
+        return LibSwap._getFromToLatestPrice(_from, _to);
     }
 }

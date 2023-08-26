@@ -69,9 +69,9 @@ contract YieldFacet is Modifiers {
         /**
          * @notice Logic to switch underlying token if new vault accepts another asset.
          * @dev Need to ensure that (A) swap params have been set and;
-         * @dev (B) _to asset's decimals have been set and;
-         * @dev (C) 'buffer' is set for new underlying and resides at this address and;
-         * @dev (D) 'harvestable' bool is indicated for new vault if required.
+         *      (B) _to asset's decimals have been set and;
+         *      (C) 'buffer' is set for new underlying and resides at this address and;
+         *      (D) 'harvestable' bool is indicated for new vault if required.
          */
         if (IERC4626(s.vault[_cofi]).asset() != IERC4626(_newVault).asset()) {
             assets = LibSwap._swapERC20ForERC20(
@@ -213,26 +213,23 @@ contract YieldFacet is Modifiers {
 
     function getBuffer(
         address _cofi
-    )   external
-        view
+    )   external view
         returns (uint256)
     {
         return s.buffer[_cofi];
     }
 
     function getRebasePublic(
-        address _co
-    )   external
-        view
+        address _cofi
+    )   external view
         returns (uint8)
     {
-        return s.rebasePublic[_co];
+        return s.rebasePublic[_cofi];
     }
 
     function getHarvestable(
         address _vault
-    )   external
-        view
+    )   external view
         returns (uint8)
     {
         return s.harvestable[_vault];

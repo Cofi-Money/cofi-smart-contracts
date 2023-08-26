@@ -41,6 +41,11 @@ struct SwapInfo {
     uint256 wait;
 }
 
+struct Vault {
+    address vault;
+    uint256 allocation; // Basis points.
+}
+
 /*//////////////////////////////////////////////////////////////
                     Loan Types {Update ?}
 //////////////////////////////////////////////////////////////*/
@@ -111,6 +116,9 @@ struct AppStorage {
 
     // E.g., coUSD => yvDAI.
     mapping(address => address) vault;
+
+    // E.g., coUSD => [yvUSDC, wsoUSDC, yvDAI, wsoDAI].
+    mapping(address => Vault[]) vaults;
 
     // E.g., coUSD => DAI.
     mapping(address => address) underlying;
@@ -185,6 +193,9 @@ struct AppStorage {
 
     // E.g., USDC => DAI => SwapInfo.
     mapping(address => mapping(address => SwapInfo)) swapInfo;
+
+    // E.g., wETH => [USDC, DAI, wBTC]. Returns array of tokens it can be swapped to.
+    mapping(address => address[]) supportedSwaps;
 
     // E.g., USDC => Chainlink USDC price oracle.
     mapping(address => address) priceFeed;

@@ -11,14 +11,14 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
     █▄▄ █▄█ █▀░ █
 
     @author Sam Goodenough, The Stoa Corporation Ltd.
-    @title  Access Facet
-    @notice Admin functions for managing/viewing account roles.
+    @title  Account Manager Facet
+    @notice Admin functions for managing accounts.
  */
 
-contract AccessFacet is Modifiers {
+contract AccountManagerFacet is Modifiers {
 
     /*//////////////////////////////////////////////////////////////
-                            TOKEN MANAGEMENT
+                        COFI Token Management
     //////////////////////////////////////////////////////////////*/
 
     function recover(
@@ -58,7 +58,7 @@ contract AccessFacet is Modifiers {
     }
 
     /*//////////////////////////////////////////////////////////////
-                            ADMIN - SETTERS
+                            Account Management
     //////////////////////////////////////////////////////////////*/
 
     function setWhitelist(
@@ -83,7 +83,6 @@ contract AccessFacet is Modifiers {
             _account != s.owner || _account != s.backupOwner,
             'AccessFacet: Owners must retain admin status'
         );
-
         s.isAdmin[_account] = _enabled;
         return true;
     }
@@ -110,13 +109,12 @@ contract AccessFacet is Modifiers {
     }
 
     /*//////////////////////////////////////////////////////////////
-                                GETTERS
+                                Getters
     //////////////////////////////////////////////////////////////*/
 
     function getWhitelistStatus(
         address _account
-    )   external
-        view
+    )   external view
         returns (uint8)
     {
         return s.isWhitelisted[_account];
@@ -124,8 +122,7 @@ contract AccessFacet is Modifiers {
 
     function getAdminStatus(
         address _account
-    )   external
-        view
+    )   external view
         returns (uint8)
     {
         return s.isAdmin[_account];
@@ -133,8 +130,7 @@ contract AccessFacet is Modifiers {
 
     function getWhitelisterStatus(
         address _account
-    )   external
-        view
+    )   external view
         returns (uint8)
     {
         return s.isWhitelister[_account];
@@ -142,16 +138,14 @@ contract AccessFacet is Modifiers {
 
     function getUpkeepStatus(
         address _account
-    )   external
-        view
+    )   external view
         returns (uint8)
     {
         return s.isUpkeep[_account];
     }
 
     function getFeeCollector(
-    )   external
-        view
+    )   external view
         returns (address)
     {
         return s.feeCollector;

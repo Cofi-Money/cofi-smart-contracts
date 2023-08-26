@@ -10,6 +10,7 @@ import { FixedPointMath } from './external/FixedPointMath.sol';
 import { StableMath } from './external/StableMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
+import 'hardhat/console.sol';
 
 library LibSwap {
     using PercentageMath for uint256;
@@ -95,10 +96,12 @@ library LibSwap {
             );
             amountOut = amounts[amounts.length - 1];
         } else if (s.swapProtocol[address(WETH)][_to] == SwapProtocol(2)) {
+            console.log('Entering UniswapV3 route');
             amountOut = LibUniswapV3._exactInputETH(
                 _getAmountOutMin(msg.value, address(WETH), _to),
                 _to
             );
+            console.log('amountOut: %s', amountOut);
         }
         emit Swap(address(WETH), _to, msg.value, amountOut, address(this));
     }
@@ -158,8 +161,8 @@ library LibSwap {
      * @notice Computes 'amountOutMin' by retrieving prices of '_from' and '_to' assets and applying slippage.
      * @dev If a custom value for slippage is not set for the '_from', '_to' mapping, will use default.
      * @param _amountIn The amount of '_from' tokens to swap.
-     * @param _from     The asset to swap (tokens or ETH).
-     * @param _to       The asset to receive (tokens or ETH).
+     * @param _from     The asset to swap (e.g., wETH).
+     * @param _to       The asset to receive (e.g., USDC).
      */
     function _getAmountOutMin(
         uint256 _amountIn,
@@ -170,15 +173,14 @@ library LibSwap {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        (, , uint256 fromTo) = _getLatestPrice(_from, _to);
-
         // Need to divide by Chainlink answer 8 decimals after multiplying.
-        return (_amountIn.mulDivUp(fromTo, 1e8))
+        amountOutMin = (_amountIn.mulDivUp(_getFromToLatestPrice(_from, _to), 1e8))
             .scaleBy(s.decimals[_to], s.decimals[_from])
-            .percentMul(1e4 - s.swapInfo[_from][_to].slippage == 0 ?
+            .percentMul(1e4 - (s.swapInfo[_from][_to].slippage == 0 ?
                 s.defaultSlippage :
-                s.swapInfo[_from][_to].slippage
+                s.swapInfo[_from][_to].slippage)
             );
+        console.log('amountOutMin: %s', amountOutMin); // P
     }
 
     /**
@@ -186,36 +188,41 @@ library LibSwap {
      * @dev Return values adjusted to 8 decimals (e.g., $1.00 = 1(.)00_000_000).
      * @param _from The asset to enquire price for.
      * @param _to   The asset to denominate price in.
-     * @return fromUSD  The USD price of the '_from' asset.
-     * @return toUSD    The USD price of the '_to' asset.
      * @return fromTo   The '_from' asset price denominated in '_to' asset. 
      */
-    function _getLatestPrice(
+    function _getFromToLatestPrice(
         address _from,
         address _to
     )   internal view
-        returns (uint256 fromUSD, uint256 toUSD, uint256 fromTo)
+        returns (uint256 fromTo)
+    {
+        // Scales to 18 but need to return answer in 8 decimals.
+        fromTo = _getLatestPrice(_from).divPrecisely(_getLatestPrice(_to)).scaleBy(8, 18);
+        console.log('fromTo: %s', fromTo);
+    }
+
+    /// @notice Retrieves latest price of '_asset' from Chainlink price oracle.
+    function _getLatestPrice(
+        address _asset
+    )   internal view
+        returns (uint256 price)
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
+        // I,e,, if asset is a cofi token, use its underlying as its price.
+        if (s.underlying[_asset] != address(0)) _asset = s.underlying[_asset];
+
+        // If _to not set, assume USD.
+        if (s.priceFeed[_asset] == address(0)) return 1e8;
+
         (uint80 _roundID, int256 _answer, , uint256 _timestamp, uint80 _answeredInRound)
-            = AggregatorV3Interface(s.priceFeed[_from]).latestRoundData();
+            = AggregatorV3Interface(s.priceFeed[_asset]).latestRoundData();
 
         require(_answeredInRound >= _roundID, 'LibSwap: Stale price');
         require(_timestamp != 0,'LibSwap: Round not complete');
         require(_answer > 0,'LibSwap: Chainlink answer reporting 0');
 
-        fromUSD = _answer.abs();
-
-        // If _to not set, assume USD.
-        if (s.priceFeed[_to] == address(0)) {
-            return (fromUSD, 1e8, fromUSD);
-        }
-
-        (, _answer, , , ) = AggregatorV3Interface(s.priceFeed[_to]).latestRoundData();
-        toUSD = _answer.abs();
-
-        // Scales to 18 but need to return answer in 8 decimals.
-        fromTo = fromUSD.divPrecisely(toUSD).scaleBy(8, 18);
+        console.log('answer: %s', _answer.abs()); // P
+        return _answer.abs();
     }
 }
