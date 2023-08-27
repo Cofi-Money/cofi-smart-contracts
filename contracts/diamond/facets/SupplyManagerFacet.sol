@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Modifiers } from '../libs/LibAppStorage.sol';
+import { Vault, Modifiers } from '../libs/LibAppStorage.sol';
+import { IERC4626 } from '../interfaces/IERC4626.sol';
 
 /**
 
@@ -22,16 +23,14 @@ contract SupplyManagerFacet is Modifiers {
     /// @dev Set cofi token vars first BEFORE onboarding (refer to LibAppStorage.sol).
     function onboardAsset(
         address _cofi,
-        address _underlying,
-        address _vault,
-        uint8   _decimals
+        uint8   _decimals,
+        Vault[] memory _vaults
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.underlying[_cofi] = _underlying;
         s.decimals[_cofi] = _decimals;
-        s.vault[_cofi] = _vault;
+        s.vaults[_cofi] = _vaults;
         return true;
     }
 
@@ -179,14 +178,6 @@ contract SupplyManagerFacet is Modifiers {
     )   external view
         returns (address)
     {
-        return s.underlying[_cofi];
-    }
-
-    function getVault(
-        address _cofi
-    )   external view
-        returns (address)
-    {
-        return s.vault[_cofi];
+        return IERC4626(s.vaults[_cofi][0].vault).asset();
     }
 }

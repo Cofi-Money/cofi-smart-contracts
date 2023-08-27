@@ -32,20 +32,17 @@ library LibVault {
     event Unwrap(address indexed vault, uint256 assets, uint256 shares);
 
     /**
-     * @notice Emitted when a vault migration is executed.
-     * @param cofi      The cofi token to migrate assets for.
-     * @param vault     The vault migrated from.
-     * @param newVault  The vault migrated to.
-     * @param assets    The amount of assets pre-migration (represented in underlying decimals).
-     * @param newAssets The amount of assets post-migration (represented in underlying decimals).
+     * @notice Emitted when a vault's asset allocation is reduced.
+     * @param vault         The reduced vault.
+     * @param allocation    The new asset allocation of the vault.
      */
-    event VaultMigration(
-        address indexed cofi,
-        address indexed vault,
-        address indexed newVault,
-        uint256 assets,
-        uint256 newAssets
-    );
+    event VaultAllocationUpdated(address indexed vault, uint256 allocation);
+
+    /**
+     * @notice Emitted when the vaults' assets for a cofi token are rebalanced.
+     * @param cofi The cofi token whose backing assets were rebalanced for.
+     */
+    event Rebalance(address indexed cofi);
 
     /**
      * @notice Emitted when a harvest operation is executed (usually immediately prior to a rebase).

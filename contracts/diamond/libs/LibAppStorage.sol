@@ -114,14 +114,8 @@ struct AppStorage {
     // E.g., USDC => 100. Buffer for migrations.
     mapping(address => uint256) buffer;
 
-    // // E.g., coUSD => yvDAI.
-    // mapping(address => address) vault;
-
-    // E.g., coUSD => [yvUSDC, wsoUSDC].
+    // E.g., coUSD => [yvUSDC, wsoUSDC]. Must share the same asset.
     mapping(address => Vault[]) vaults;
-
-    // E.g., coUSD => DAI.
-    mapping(address => address) underlying;
 
     // E.g., coUSD => 1.
     mapping(address => uint8)   mintEnabled;
@@ -273,6 +267,14 @@ contract Modifiers {
     
     modifier onlyAdmin() {
         require(s.isAdmin[msg.sender] == 1, 'Caller not Admin');
+        _;
+    }
+
+    modifier onlyUpkeepOrAdmin() {
+        require(
+            s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
+            'Caller not Upkeep or Admin'
+        );
         _;
     }
 

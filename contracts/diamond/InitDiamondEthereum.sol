@@ -30,13 +30,13 @@ contract InitDiamondEthereum {
         ds.supportedInterfaces[type(IDiamondLoupe).interfaceId] = true;
         ds.supportedInterfaces[type(IERC173).interfaceId]       = true;
 
-        s.underlying[_args.coUSD] = _args.DAI;
+        // s.underlying[_args.coUSD] = _args.DAI;
 
         // Set min deposit/withdraw values (target $20).
         s.minDeposit[_args.coUSD]   = 1e6 - 1; // 1 DAI [6 digits].
         s.minWithdraw[_args.coUSD]  = 1e6 - 1; // 1 DAI.
 
-        s.vault[_args.coUSD] = _args.vDAI;
+        // s.vault[_args.coUSD] = _args.vDAI;
 
         // Set mint enabled.
         s.mintEnabled[_args.coUSD] = 1;

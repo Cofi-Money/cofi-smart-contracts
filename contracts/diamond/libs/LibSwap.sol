@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { AppStorage, LibAppStorage, SwapProtocol } from './LibAppStorage.sol';
 import { LibVelodromeV2 } from './LibVelodromeV2.sol';
 import { LibUniswapV3 } from './LibUniswapV3.sol';
+import { IERC4626 } from '.././interfaces/IERC4626.sol';
 import { IWETH } from '../interfaces/IWETH.sol';
 import { PercentageMath } from './external/PercentageMath.sol';
 import { FixedPointMath } from './external/FixedPointMath.sol';
@@ -227,7 +228,8 @@ library LibSwap {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         // I,e,, if asset is a cofi token, use its underlying as its price.
-        if (s.underlying[_asset] != address(0)) _asset = s.underlying[_asset];
+        if (s.vaults[_asset].length != 0) _asset =
+            IERC4626(s.vaults[_asset][0].vault).asset();
 
         // If _to not set, assume USD.
         if (s.priceFeed[_asset] == address(0)) return 1e8;

@@ -3,9 +3,10 @@ pragma solidity ^0.8.0;
 
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { LibVault } from './LibVault.sol';
+import { ICOFIToken } from '.././interfaces/ICOFIToken.sol';
+import { IERC4626 } from '.././interfaces/IERC4626.sol';
 import { PercentageMath } from './external/PercentageMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import { ICOFIToken } from '.././interfaces/ICOFIToken.sol';
 import 'contracts/token/utils/StableMath.sol';
 
 library LibToken {
@@ -197,10 +198,53 @@ library LibToken {
         ICOFIToken(_cofi).unlock(_from, _amount);
     }
 
-    /**
-     * @notice Updates cofi token supply to assets held in vault. Used to distribute earnings.
-     * @param _cofi The cofi token to distribute earnings for.
-     */
+    // /**
+    //  * @notice Updates cofi token supply to assets held in vault. Used to distribute earnings.
+    //  * @param _cofi The cofi token to distribute earnings for.
+    //  */
+    // function _poke(
+    //     address _cofi
+    // )   internal
+    //     returns (uint256 assets, uint256 yield, uint256 shareYield)
+    // {
+    //     AppStorage storage s = LibAppStorage.diamondStorage();
+
+    //     uint256 currentSupply = IERC20(_cofi).totalSupply();
+    //     if (currentSupply == 0) {
+    //         emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
+    //         return (0, 0, 0); 
+    //     }
+    //     // Preemptively harvest if necessary for vault.
+    //     if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(s.vault[_cofi]);
+        
+    //     assets = _toCofiDecimals(s.underlying[_cofi], LibVault._totalValue(s.vault[_cofi]));
+
+    //     if (assets > currentSupply) {
+
+    //         yield = assets - currentSupply;
+
+    //         shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
+
+    //         _changeSupply(
+    //             _cofi,
+    //             currentSupply + shareYield,
+    //             yield,
+    //             yield - shareYield
+    //         );
+    //         if (yield - shareYield > 0)
+    //             _mint(_cofi, s.feeCollector, yield - shareYield);
+    //     } else {
+    //         emit TotalSupplyUpdated(
+    //             _cofi,
+    //             assets,
+    //             0,
+    //             _getRebasingCreditsPerToken(_cofi),
+    //             0
+    //         );
+    //         return (assets, 0, 0);
+    //     }
+    // }
+
     function _poke(
         address _cofi
     )   internal
@@ -209,53 +253,7 @@ library LibToken {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         uint256 currentSupply = IERC20(_cofi).totalSupply();
-        if (currentSupply == 0) {
-            emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
-            return (0, 0, 0); 
-        }
-        // Preemptively harvest if necessary for vault.
-        if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(s.vault[_cofi]);
-        
-        assets = _toCofiDecimals(s.underlying[_cofi], LibVault._totalValue(s.vault[_cofi]));
-
-        if (assets > currentSupply) {
-
-            yield = assets - currentSupply;
-
-            shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
-
-            _changeSupply(
-                _cofi,
-                currentSupply + shareYield,
-                yield,
-                yield - shareYield
-            );
-            if (yield - shareYield > 0)
-                _mint(_cofi, s.feeCollector, yield - shareYield);
-        } else {
-            emit TotalSupplyUpdated(
-                _cofi,
-                assets,
-                0,
-                _getRebasingCreditsPerToken(_cofi),
-                0
-            );
-            return (assets, 0, 0);
-        }
-    }
-
-    function _pokeMulti(
-        address _cofi
-    )   internal
-        returns (uint256 assets, uint256 yield, uint256 shareYield)
-    {
-        AppStorage storage s = LibAppStorage.diamondStorage();
-
-        uint256 currentSupply = IERC20(_cofi).totalSupply();
-        if (currentSupply == 0) {
-            emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
-            return (0, 0, 0); 
-        }
+        if (currentSupply == 0) return (0, 0, 0); 
 
         for (uint i = 0; i < s.vaults[_cofi].length; i++) {
             // Preemptively harvest if necessary for vault.
@@ -263,7 +261,7 @@ library LibToken {
                 LibVault._harvest(s.vaults[_cofi][i].vault);
             
             assets += _toCofiDecimals(
-                s.underlying[_cofi],
+                IERC4626(s.vaults[_cofi][0].vault).asset(),
                 LibVault._totalValue(s.vaults[_cofi][i].vault)
             );
         }
@@ -271,7 +269,6 @@ library LibToken {
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
-
             shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
 
             _changeSupply(
@@ -282,16 +279,7 @@ library LibToken {
             );
             if (yield - shareYield > 0)
                 _mint(_cofi, s.feeCollector, yield - shareYield);
-        } else {
-            emit TotalSupplyUpdated(
-                _cofi,
-                assets,
-                0,
-                _getRebasingCreditsPerToken(_cofi),
-                0
-            );
-            return (assets, 0, 0);
-        }
+        } else return (assets, 0, 0);
     }
 
     /// @dev Updates supply directly.
@@ -424,7 +412,9 @@ library LibToken {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(uint256(s.decimals[s.underlying[_cofi]]), 18);
+        return _amount.scaleBy(
+            uint256(s.decimals[IERC4626(s.vaults[_cofi][0].vault).asset()]), 18
+        );
     }
 
     /**
@@ -440,14 +430,5 @@ library LibToken {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return _amount.percentMul(1e4 - s.defaultSlippage);
-    }
-
-    function _applyPercent(
-        uint256 _amount,
-        uint256 _percent
-    )   internal pure
-        returns (uint256)
-    {
-        return _amount.percentMul(_percent);
     }
 }

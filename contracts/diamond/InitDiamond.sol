@@ -38,9 +38,9 @@ contract InitDiamond {
         address WETH = 0x4200000000000000000000000000000000000006;
         address WBTC = 0x68f180fcCe6836688e9084f035309E29Bf0A2095;
 
-        s.underlying[_args.coUSD] = USDC;
-        s.underlying[_args.coETH] = WETH;
-        s.underlying[_args.coBTC] = WBTC;
+        // s.underlying[_args.coUSD] = USDC;
+        // s.underlying[_args.coETH] = WETH;
+        // s.underlying[_args.coBTC] = WBTC;
 
         // Set min deposit/withdraw values (target $20).
         s.minDeposit[_args.coUSD]   = 1e6 - 1; // 1 USDC [6 digits].
@@ -50,9 +50,9 @@ contract InitDiamond {
         s.minWithdraw[_args.coETH]  = 1e15 - 1; // 0.001 wETH.
         s.minWithdraw[_args.coBTC]  = 1e4 - 1;  // 0.0001 wBTC.
 
-        s.vault[_args.coUSD]    = _args.vUSDC;
-        s.vault[_args.coETH]    = _args.vETH;
-        s.vault[_args.coBTC]    = _args.vBTC;
+        // s.vault[_args.coUSD]    = _args.vUSDC;
+        // s.vault[_args.coETH]    = _args.vETH;
+        // s.vault[_args.coBTC]    = _args.vBTC;
 
         // Only YearnV2 and CompoundV2 (Sonne) harvestable to begin with.
         s.harvestable[_args.vUSDC]  = 1;
