@@ -16,7 +16,7 @@ const YVUSDC_ABI = require("./abi/YVUSDC.json")
 const YVETH_ABI = require("./abi/YVETH.json")
 
 const WBTC_ABI = require("./abi/WBTC.json")
-const SOWBTC_ABI = require("./abi/SOTOKEN.json")
+const SOTKN_ABI = require("./abi/SOTOKEN.json")
 
 const USDC_Addr = "0x7F5c764cBc14f9669B88837ca1490cCa17c31607"
 const DAI_Addr = "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1"
@@ -29,6 +29,7 @@ const StakingRewards_YVUSDC_Addr = "0xB2c04C55979B6CA7EB10e666933DE5ED84E6876b"
 const StakingRewards_YVETH_Addr = "0xE35Fec3895Dcecc7d2a91e8ae4fF3c0d43ebfFE0"
 
 const WBTC_Addr = "0x68f180fcCe6836688e9084f035309E29Bf0A2095"
+const SOUSDC_Addr = "0xEC8FEa79026FfEd168cCf5C627c7f486D77b765F"
 const SOWBTC_Addr = "0x33865E09A572d4F1CC4d75Afc9ABcc5D3d4d867D"
 const COMPTROLLER_Addr = "0x60cf091cd3f50420d50fd7f707414d0df4751c58"
 
@@ -70,22 +71,38 @@ describe("Test wrappers in app context", function() {
 
         /* Deploy wrappers */
 
-        const WYVUSDC = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
-        const wyvUSDC = await WYVUSDC.deploy(
-            YVUSDC_Addr,
-            YVOP_Addr,
-            StakingRewards_YVUSDC_Addr,
-            "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
-            USDC_Addr, // want
-            getRewardMin,
-            amountInMin,
-            slippage,
-            wait,
-            poolFee,
-            {gasLimit: "30000000"}
+        // const wsoUSDC = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
+        // const wsoUSDC = await wsoUSDC.deploy(
+        //     YVUSDC_Addr,
+        //     YVOP_Addr,
+        //     StakingRewards_YVUSDC_Addr,
+        //     "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
+        //     USDC_Addr, // want
+        //     getRewardMin,
+        //     amountInMin,
+        //     slippage,
+        //     wait,
+        //     poolFee,
+        //     {gasLimit: "30000000"}
+        // )
+        // await wsoUSDC.waitForDeployment()
+        // console.log("wsoUSDC deployed: ", await wsoUSDC.getAddress())
+
+        const WSOUSDC = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")
+        const wsoUSDC = await WSOUSDC.deploy(
+            USDC_Addr,
+            OP_Addr,
+            SOUSDC_Addr,
+            COMPTROLLER_Addr,
+            "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3", // USDC price feed
+            "1000000000000000000", // amountInMin = 1 OP
+            "200", // slippage = 2%
+            "12" // wait = 12 seconds
         )
-        await wyvUSDC.waitForDeployment()
-        console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
+        await wsoUSDC.waitForDeployment()
+        console.log("wsoUSDC deployed: ", await wsoUSDC.getAddress())
+        // Although OP-USDC pool exists, OP-wETH-USDC provides better exchange rate.
+        await wsoUSDC.setRoute("500", WETH_Addr, "500")
     
         const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
         const wyvETH = await WYVETH.deploy(
@@ -117,7 +134,8 @@ describe("Test wrappers in app context", function() {
         )
         await wsoBTC.waitForDeployment()
         console.log("wsoBTC deployed: ", await wsoBTC.getAddress())
-        await wsoBTC.setRoute("3000", WETH_Addr, "3000")
+        // Changed from 0.3% for each.
+        await wsoBTC.setRoute("500", WETH_Addr, "500")
 
         /* Deploy COFI tokens */
 
@@ -206,7 +224,7 @@ describe("Test wrappers in app context", function() {
             coUSD:  await coUSD.getAddress(),
             coETH:  await coETH.getAddress(),
             coBTC:  await coBTC.getAddress(),
-            vUSDC:  await wyvUSDC.getAddress(),
+            vUSDC:  await wsoUSDC.getAddress(),
             vETH:   await wyvETH.getAddress(),
             vBTC:   await wsoBTC.getAddress(),
             roles: [
@@ -233,9 +251,9 @@ describe("Test wrappers in app context", function() {
         console.log('Completed diamond cut')
 
         // Authorize Diamond to interact with wrappers
-        await wyvUSDC.setAuthorized(await diamond.getAddress(), "1")
+        await wsoUSDC.setAuthorized(await diamond.getAddress(), "1")
         // Need to set "rewardShareReceiver" for Yearn wrappers.
-        await wyvUSDC.setRewardShareReceiver(await diamond.getAddress())
+        // await wsoUSDC.setRewardShareReceiver(await diamond.getAddress())
         await wyvETH.setAuthorized(await diamond.getAddress(), "1")
         await wyvETH.setRewardShareReceiver(await diamond.getAddress())
         await wsoBTC.setAuthorized(await diamond.getAddress(), "1")
@@ -284,7 +302,7 @@ describe("Test wrappers in app context", function() {
 
         /* Set up executable yield distribution */
         const wop_op = (await ethers.getContractAt(OP_ABI, OP_Addr)).connect(wopSigner)
-        await wop_op.transfer(await wyvUSDC.getAddress(), ethers.parseEther('10')) // 10 OP
+        await wop_op.transfer(await wsoUSDC.getAddress(), ethers.parseEther('10')) // 10 OP
         await wop_op.transfer(await wyvETH.getAddress(), ethers.parseEther('10')) // 10 OP
         await wop_op.transfer(await wsoBTC.getAddress(), ethers.parseEther('10')) // 10 OP
         console.log("Transferred OP to wrappers")
@@ -298,12 +316,12 @@ describe("Test wrappers in app context", function() {
         // console.log('t1 coETH yield earned: ' + await coETH.getYieldEarned(await owner.getAddress()))
         // console.log('t1 coBTC yield earned: ' + await coBTC.getYieldEarned(await owner.getAddress()))
 
-        return { owner, feeCollector, wyvUSDC, wyvETH, wsoBTC, coUSD, coETH, coBTC, usdc, dai, weth, wbtc, cofiMoney }
+        return { owner, feeCollector, wsoUSDC, wyvETH, wsoBTC, coUSD, coETH, coBTC, usdc, dai, weth, wbtc, cofiMoney }
     }
 
     // it("Should enable User to deposit ETH and receive coUSD", async function() {
 
-    //     const { owner, feeCollector, coUSD, usdc, wyvUSDC, cofiMoney } = await loadFixture(deploy)
+    //     const { owner, feeCollector, coUSD, usdc, wsoUSDC, cofiMoney } = await loadFixture(deploy)
 
     //     await cofiMoney.ETHToCofi(
     //         await coUSD.getAddress(),
@@ -314,7 +332,7 @@ describe("Test wrappers in app context", function() {
 
     //     console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
     //     console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-    //     console.log("t0 Diamond wyvUSDC bal: ", await wyvUSDC.balanceOf(await cofiMoney.getAddress()))
+    //     console.log("t0 Diamond wsoUSDC bal: ", await wsoUSDC.balanceOf(await cofiMoney.getAddress()))
     // })
 
     // it("Should enable User to deposit ETH and receive coETH", async function() {
@@ -333,15 +351,69 @@ describe("Test wrappers in app context", function() {
     //     console.log("t0 Diamond wyvETH bal: ", await wyvETH.balanceOf(await cofiMoney.getAddress()))
     // })
 
-    it("Should enable User to deposit ETH and receive coBTC", async function() {
+    // it("Should enable User to deposit ETH and receive coBTC", async function() {
 
-        const { owner, feeCollector, coBTC, wsoBTC, cofiMoney } = await loadFixture(deploy)
+    //     const { owner, feeCollector, coBTC, wsoBTC, cofiMoney } = await loadFixture(deploy)
 
-        await cofiMoney.ETHToCofi(
+    //     await cofiMoney.ETHToCofi(
+    //         await coBTC.getAddress(),
+    //         await owner.getAddress(),
+    //         NULL_Addr,
+    //         {value: ethers.parseEther('1')}
+    //     )
+
+    //     console.log("t0 User coBTC bal: ", await coBTC.balanceOf(await owner.getAddress()))
+    //     console.log("t0 Fee Collector coBTC bal: ", await coBTC.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t0 Diamond wsoBTC bal: ", await wsoBTC.balanceOf(await cofiMoney.getAddress()))
+    // })
+
+    it("Should enable User to deposit USDC and receive coUSD", async function() {
+
+        const { owner, feeCollector, coUSD, wsoUSDC, usdc, cofiMoney } = await loadFixture(deploy)
+
+        await cofiMoney.tokensToCofi(
+            await usdc.balanceOf(await owner.getAddress()),
+            USDC_Addr,
+            await coUSD.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+
+        console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 Diamond wsoUSDC bal: ", await wsoUSDC.balanceOf(await cofiMoney.getAddress()))
+    })
+
+    it("Should enable User to deposit wETH and receive coETH", async function() {
+
+        const { owner, feeCollector, coETH, wyvETH, weth, cofiMoney } = await loadFixture(deploy)
+
+        await cofiMoney.tokensToCofi(
+            await weth.balanceOf(await owner.getAddress()),
+            WETH_Addr,
+            await coETH.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+
+        console.log("t0 User coETH bal: ", await coETH.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coETH bal: ", await coETH.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 Diamond wyvETH bal: ", await wyvETH.balanceOf(await cofiMoney.getAddress()))
+    })
+
+    it("Should enable User to deposit wBTC and receive coBTC", async function() {
+
+        const { owner, feeCollector, coBTC, wsoBTC, wbtc, cofiMoney } = await loadFixture(deploy)
+
+        await cofiMoney.tokensToCofi(
+            await wbtc.balanceOf(await owner.getAddress()),
+            WBTC_Addr,
             await coBTC.getAddress(),
             await owner.getAddress(),
-            NULL_Addr,
-            {value: ethers.parseEther('1')}
+            await owner.getAddress(),
+            NULL_Addr
         )
 
         console.log("t0 User coBTC bal: ", await coBTC.balanceOf(await owner.getAddress()))
@@ -349,5 +421,36 @@ describe("Test wrappers in app context", function() {
         console.log("t0 Diamond wsoBTC bal: ", await wsoBTC.balanceOf(await cofiMoney.getAddress()))
     })
 
-    // Try vanilla + diff deposit flows with tokenToCofi
+    it("Should enable User to deposit DAI and receive coUSD", async function() {
+
+        const { owner, feeCollector, coUSD, wsoUSDC, usdc, dai, cofiMoney } = await loadFixture(deploy)
+
+        const fromTo = await cofiMoney.getConversion(
+            await dai.balanceOf(await owner.getAddress()),
+            '0',
+            DAI_Addr,
+            USDC_Addr
+        )
+        console.log("Dai bal [USDC]: ", fromTo)
+
+        const coUSDOut = await cofiMoney.getEstimatedCofiOut(
+            await dai.balanceOf(await owner.getAddress()),
+            DAI_Addr,
+            await coUSD.getAddress()
+        )
+        console.log("Estimated coUSD out: ", coUSDOut)
+
+        await cofiMoney.tokensToCofi(
+            await dai.balanceOf(await owner.getAddress()),
+            DAI_Addr,
+            await coUSD.getAddress(),
+            await owner.getAddress(),
+            await owner.getAddress(),
+            NULL_Addr
+        )
+
+        console.log("t0 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+        console.log("t0 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+        console.log("t0 Diamond wsoUSDC bal: ", await wsoUSDC.balanceOf(await cofiMoney.getAddress()))
+    })
 })

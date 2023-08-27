@@ -268,7 +268,7 @@ contract SwapManagerFacet is Modifiers {
         return s.priceFeed[_token];
     }
 
-    /// @dev "Minimum amount received" should be displayed to the user on the front-end.
+    /// @notice Returns the minimum amount received from a swap operation.
     function getAmountOutMin(
         uint256 _amountIn,
         address _from,
@@ -279,13 +279,21 @@ contract SwapManagerFacet is Modifiers {
         return LibSwap._getAmountOutMin(_amountIn, _from, _to);
     }
 
-    /// @notice Returns the price of '_from' denominated in '_to'.
-    function getFromToLatestPrice(
+    /**
+     * @notice Returns the price of amount '_from' denominated in '_to'.
+     * @param _amount   The amount of from asset to convert from.
+     * @param _fee      A custom deduction amount in basis points applied to amount.
+     * @param _from     The asset to convert from.
+     * @param _to       The asset to convert to.
+     */
+    function getConversion(
+        uint256 _amount,
+        uint256 _fee,
         address _from,
         address _to
     )   external view
         returns (uint256 fromTo)
     {
-        return LibSwap._getFromToLatestPrice(_from, _to);
+        return LibSwap._getConversion(_amount, _fee, _from, _to);
     }
 }

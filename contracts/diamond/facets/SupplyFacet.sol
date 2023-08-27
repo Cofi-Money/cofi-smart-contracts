@@ -83,8 +83,9 @@ contract SupplyFacet is Modifiers {
             _depositFrom,
             address(this)
         );
-
+        console.log('Transferred tokens');
         if (_token != s.underlying[_cofi]) {
+            console.log('Entering ERC20 swap');
             underlyingOut = LibSwap._swapERC20ForERC20(
                 _tokensIn,
                 _token,
@@ -94,6 +95,7 @@ contract SupplyFacet is Modifiers {
         } else {
             underlyingOut = _tokensIn;
         }
+        console.log('underlyingOut: %s', underlyingOut);
 
         uint256 fee;
         // Underling tokens reside at this contract from swap operation.
@@ -352,6 +354,61 @@ contract SupplyFacet is Modifiers {
         }
     }
 
+    function _underlyingToCofiMulti(
+        uint256 _underlyingIn,
+        address _cofi,
+        address _recipient,
+        address _referral
+    )   internal
+        minDeposit(_underlyingIn, _cofi)
+        returns (uint256 mintAfterFee, uint256 fee)
+    {
+        // Preemptively rebases if enabled.
+        if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
+
+        SafeERC20.safeApprove(
+            IERC20(IERC4626(s.vault[_cofi]).asset()),
+            s.vault[_cofi],
+            _underlyingIn
+        );
+        
+        uint256 assets;
+        uint256 allocation;
+        uint256 allocationTotal;
+        for (uint i = 0; i < s.vaults[_cofi].length; i++) {
+            allocation = LibToken._applyPercent(_underlyingIn, s.vaults[_cofi][i].allocation);
+            assets += LibToken._toCofiDecimals(
+                s.underlying[_cofi],
+                LibVault._getAssets(
+                    LibVault._wrap(allocation, s.vaults[_cofi][i].vault),
+                    s.vault[_cofi]
+                )
+            );
+            allocationTotal += allocation;
+        }
+        require(allocationTotal == _underlyingIn, 'SupplyFacet: Allocations miscalculation');
+
+        require(
+            assets >= LibToken._applySlippage(_underlyingIn),
+            'SupplyFacet: Slippage exceeded'
+        );
+
+        fee = LibToken._getMintFee(_cofi, assets);
+        mintAfterFee = assets - fee;
+        console.log('mintAfterFee: %s', mintAfterFee);
+
+        // Capture mint fee in co tokens.
+        if (fee > 0) LibToken._mint(_cofi, s.feeCollector, fee);
+
+        LibToken._mintOptIn(_cofi, _recipient, mintAfterFee);
+
+        // Distribute rewards.
+        LibReward._initReward();
+        if (_referral != address(0)) {
+            LibReward._referReward(_referral);
+        }
+    }
+
     /**
      * @notice Converts a cofi token to its collateral underlying token (e.g., coUSD to USDC).
      * @param _cofiIn       The amount of cofi tokens to redeem.
@@ -392,5 +449,73 @@ contract SupplyFacet is Modifiers {
 
         // If enabled, rebase after to avoid dust residing at depositFrom.
         if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
+    }
+
+    function cofiToUnderlyingMulti(
+        uint256 _cofiIn,
+        address _cofi,
+        address _depositFrom,
+        address _recipient
+    )   public
+        nonReentrant isWhitelisted redeemEnabled(_cofi) minWithdraw(_cofiIn, _cofi)
+        returns (uint256 burnAfterFee)
+    {
+        LibToken._transferFrom(_cofi, _cofiIn, _depositFrom, s.feeCollector);
+
+        uint256 fee = LibToken._getRedeemFee(_cofi, _cofiIn);
+        burnAfterFee = _cofiIn - fee;
+
+        // Redemption fee is captured by retaining 'fee' amount.
+        LibToken._burn(_cofi, s.feeCollector, burnAfterFee);
+
+        // Redeems assets directly to recipient (does not traverse through Diamond).
+        uint256 assets;
+        uint256 allocation;
+        uint256 allocationTotal;
+        for (uint i = 0; i < s.vaults[_cofi].length; i++) {
+            allocation = LibToken._applyPercent(burnAfterFee, s.vaults[_cofi][i].allocation);
+            assets += LibToken._toCofiDecimals(
+                s.underlying[_cofi],
+                LibVault._getAssets(
+                    LibVault._unwrap(allocation, s.vaults[_cofi][i].vault, _recipient),
+                    s.vault[_cofi]
+                )
+            );
+            allocationTotal += allocation;
+        }
+        require(allocationTotal == burnAfterFee, 'SupplyFacet: Allocations miscalculation');
+
+        require(
+            assets >= LibToken._applySlippage(burnAfterFee),
+            'SupplyFacet: Slippage exceeded'
+        );
+
+        emit LibToken.Withdraw(s.underlying[_cofi], _cofiIn, _depositFrom, fee);
+
+        // If enabled, rebase after to avoid dust residing at depositFrom.
+        if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
+    }
+
+    function getEstimatedCofiOut(
+        uint256 _tokensIn,
+        address _token,
+        address _cofi
+    )   public view
+        returns (uint256 cofiOut)
+    {
+        return LibSwap._getConversion(_tokensIn, s.mintFee[_cofi], _token, _cofi);
+    }
+
+    function getEstimatedTokensOut(
+        uint256 _cofiIn,
+        address _token,
+        address _cofi
+    )   public view
+        returns (uint256 cofiOut)
+    {
+        // For withdrawals, fee is applied BEFORE swap op.
+        uint256 _tokensIn = _cofiIn - LibToken._getRedeemFee(_cofi, _cofiIn);
+
+        return LibSwap._getConversion(_tokensIn, 0, _token, _cofi);
     }
 }

@@ -65,9 +65,9 @@ contract InitDiamond {
         s.mintEnabled[_args.coBTC]  = 1;
 
         // Set mint fee.
-        s.mintFee[_args.coUSD]  = 10;
-        s.mintFee[_args.coETH]  = 10;
-        s.mintFee[_args.coBTC]  = 10;
+        // s.mintFee[_args.coUSD]  = 10;
+        // s.mintFee[_args.coETH]  = 10;
+        // s.mintFee[_args.coBTC]  = 10;
 
         // Set redeem enabled.
         s.redeemEnabled[_args.coUSD]    = 1;
@@ -102,8 +102,12 @@ contract InitDiamond {
         s.referReward   = 10*10**18;    // 10 Points each for each referral.
 
         s.decimals[USDC] = 6;
+        s.decimals[DAI] = 18;
         s.decimals[WETH] = 18;
         s.decimals[WBTC] = 8;
+        s.decimals[_args.coUSD] = 18;
+        s.decimals[_args.coETH] = 18;
+        s.decimals[_args.coBTC] = 18;
 
         // 10 USDC buffer for migrations.
         s.buffer[_args.coUSD]   = 10*10**uint256(s.decimals[USDC]);
@@ -131,6 +135,22 @@ contract InitDiamond {
         // No params to set so can simply just set to VelodromeV2.
         s.swapProtocol[WETH][USDC] = SwapProtocol(2);
         s.swapProtocol[USDC][WETH] = SwapProtocol(2);
+
+        // ETH (=> wETH) => USDC and back.
+        // UniswapV3 is preferred option here.
+        s.path[DAI][USDC] = abi.encodePacked(
+            DAI,
+            uint24(100),
+            USDC
+        );
+        s.path[USDC][DAI] = abi.encodePacked(
+            DAI,
+            uint24(100),
+            WETH
+        );
+        // No params to set so can simply just set to VelodromeV2.
+        s.swapProtocol[DAI][USDC] = SwapProtocol(2);
+        s.swapProtocol[USDC][DAI] = SwapProtocol(2);
 
         // // ETH (=> wETH => USDC) => DAI and back.
         // s.route[WETH][DAI].mid = USDC;

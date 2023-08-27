@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Modifiers } from '../libs/LibAppStorage.sol';
+import { Vault, Modifiers } from '../libs/LibAppStorage.sol';
 import { LibToken } from '../libs/LibToken.sol';
 import { LibSwap } from '../libs/LibSwap.sol';
 import { LibReward } from '../libs/LibReward.sol';
@@ -59,6 +59,11 @@ contract YieldFacet is Modifiers {
     )   external
         returns (bool)
     {
+        require(
+            s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
+            'YieldFacet: Caller not Upkeep or Admin'
+        );
+
         // Pull funds from old vault.
         uint256 assets = IERC4626(s.vault[_cofi]).redeem(
             IERC20(s.vault[_cofi]).balanceOf(address(this)),
@@ -111,6 +116,90 @@ contract YieldFacet is Modifiers {
         );
 
         s.vault[_cofi] = _newVault; // Update vault for cofi token.
+
+        LibToken._poke(_cofi); // Sync cofi token supply to assets in vault.
+
+        return true;
+    }
+
+    function migrateRebalance(
+        uint256 _allocationTo, // % of allocation to transfer (e.g., 100% = entire allocation).
+        address _cofi,
+        address _vaultA,
+        address _vaultB
+    )   public
+        returns (bool)
+    {
+        require(
+            s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
+            'YieldFacet: Caller not Upkeep or Admin'
+        );
+
+        uint i;
+        for (uint j = 0; i < s.vaults[_cofi].length; j++) {
+            if (_vaultA == s.vaults[_cofi][j].vault) {
+                i = j;
+                break;
+            }
+        }
+
+        uint256 assets = IERC4626(s.vault[_cofi]).redeem(
+            LibToken._applyPercent(
+                IERC20(s.vaults[_cofi][i].vault).balanceOf(address(this)),
+                s.vaults[_cofi][i].allocation
+            ),
+            address(this),
+            address(this)
+        );
+
+        // Deduct allocation from vaultA. 
+        s.vaults[_cofi][i].allocation -= _allocationTo;
+        // If empty then remove from vaults array.
+        if (s.vaults[_cofi][i].allocation == 0) {
+            s.vaults[_cofi][i] = s.vaults[_cofi][s.vaults[_cofi].length - 1];
+            s.vaults[_cofi].pop();
+        }
+
+        // Approve '_vaultB' spend for this contract.
+        SafeERC20.safeApprove(
+            IERC20(IERC4626(_vaultB).asset()),
+            _vaultB,
+            assets + s.buffer[s.underlying[_cofi]]
+        );
+
+        // Deploy funds to new vault.
+        LibVault._wrap(
+            assets + s.buffer[s.underlying[_cofi]],
+            _vaultB
+        );
+
+        require(
+            /// @dev No need to convert decimals as both values denominated in same asset.
+            assets <= LibVault._totalValue(_vaultB),
+            'YieldFacet: Vault migration slippage exceeded'
+        );
+        emit LibVault.VaultMigration(
+            _cofi,
+            _vaultA,
+            _vaultB,
+            assets,
+            LibVault._totalValue(_vaultB)
+        );
+
+        for (uint j = 0; i < s.vaults[_cofi].length; j++) {
+            if (_vaultB == s.vaults[_cofi][j].vault) {
+                s.vaults[_cofi][i].allocation += _allocationTo;
+                i = type(uint256).max;
+                break;
+            }
+        }
+        // If vaultB is not already in vaults array.
+        if (i != type(uint256).max) {
+            Vault memory vault;
+            vault.vault = _vaultB;
+            vault.allocation = _allocationTo;
+            s.vaults[_cofi].push(vault);
+        }
 
         LibToken._poke(_cofi); // Sync cofi token supply to assets in vault.
 
@@ -210,6 +299,16 @@ contract YieldFacet is Modifiers {
     /*//////////////////////////////////////////////////////////////
                             ADMIN - GETTERS
     //////////////////////////////////////////////////////////////*/
+
+    function getTotalAssets(
+        address _cofi
+    )   external view
+        returns (uint256[] memory assets)
+    {
+        for (uint i = 0; i < s.vaults[_cofi].length; i++) {
+            assets[i] = LibVault._totalValue(s.vaults[_cofi][i].vault);
+        }
+    }
 
     function getBuffer(
         address _cofi

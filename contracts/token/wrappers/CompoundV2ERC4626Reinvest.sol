@@ -407,7 +407,7 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     )   public override nonReentrant onlyAuthorized
         returns (uint256 assets)
     {
-         // No need to check for rounding error, previewMint rounds up.
+        // No need to check for rounding error, previewMint rounds up.
         assets = previewMint(_shares);
 
         // Need to transfer before minting or ERC777s could reenter.

@@ -114,10 +114,10 @@ struct AppStorage {
     // E.g., USDC => 100. Buffer for migrations.
     mapping(address => uint256) buffer;
 
-    // E.g., coUSD => yvDAI.
-    mapping(address => address) vault;
+    // // E.g., coUSD => yvDAI.
+    // mapping(address => address) vault;
 
-    // E.g., coUSD => [yvUSDC, wsoUSDC, yvDAI, wsoDAI].
+    // E.g., coUSD => [yvUSDC, wsoUSDC].
     mapping(address => Vault[]) vaults;
 
     // E.g., coUSD => DAI.

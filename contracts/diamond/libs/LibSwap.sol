@@ -183,6 +183,23 @@ library LibSwap {
         console.log('amountOutMin: %s', amountOutMin); // P
     }
 
+    /// @dev Similar to '_getAmountOutMin()' however takes into account a custom deducation amount 'fee' in basis points.
+    function _getConversion(
+        uint256 _amount,
+        uint256 _fee,
+        address _from,
+        address _to
+    )   internal view
+        returns (uint256 fromTo)
+    {
+        AppStorage storage s = LibAppStorage.diamondStorage();
+        
+        // Need to divide by Chainlink answer 8 decimals after multiplying.
+        fromTo = (_amount.mulDivUp(_getFromToLatestPrice(_from, _to), 1e8))
+            .scaleBy(s.decimals[_to], s.decimals[_from])
+            .percentMul(1e4 - _fee);
+    }
+
     /**
      * @notice Retrieves latest price of '_from' and '_to' assets from respective Chainlink price oracle.
      * @dev Return values adjusted to 8 decimals (e.g., $1.00 = 1(.)00_000_000).
