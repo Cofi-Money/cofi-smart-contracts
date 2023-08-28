@@ -32,17 +32,20 @@ library LibVault {
     event Unwrap(address indexed vault, uint256 assets, uint256 shares);
 
     /**
-     * @notice Emitted when a vault's asset allocation is reduced.
-     * @param vault         The reduced vault.
-     * @param allocation    The new asset allocation of the vault.
+     * @notice Emitted when a vault migration is executed.
+     * @param cofi      The cofi token to migrate assets for.
+     * @param vault     The vault migrated from.
+     * @param newVault  The vault migrated to.
+     * @param assets    The amount of assets pre-migration (represented in underlying decimals).
+     * @param newAssets The amount of assets post-migration (represented in underlying decimals).
      */
-    event VaultAllocationUpdated(address indexed vault, uint256 allocation);
-
-    /**
-     * @notice Emitted when the vaults' assets for a cofi token are rebalanced.
-     * @param cofi The cofi token whose backing assets were rebalanced for.
-     */
-    event Rebalance(address indexed cofi);
+    event VaultMigration(
+        address indexed cofi,
+        address indexed vault,
+        address indexed newVault,
+        uint256 assets,
+        uint256 newAssets
+    );
 
     /**
      * @notice Emitted when a harvest operation is executed (usually immediately prior to a rebase).
@@ -135,46 +138,4 @@ library LibVault {
     {
         return IERC4626(_vault).maxWithdraw(address(this));
     }
-
-    // function _getAllocations(
-    //     address _cofi
-    // )   internal view
-    //     returns (uint256[] memory)
-    // {
-    //     AppStorage storage s = LibAppStorage.diamondStorage();
-
-    //     // Determine allocation of underlying assets.
-    //     address[] memory assets = new address[](s.vaults[_cofi].length);
-
-    // }
-
-    // function _getDeficit(
-    //     address _cofi
-    // )   internal view
-    //     returns (address target)
-    // {
-    //     AppStorage storage s = LibAppStorage.diamondStorage();
-
-    //     uint256[] memory assets = new uint256[](s.vaults[_cofi].length);
-    //     uint256 assetsTotal;
-
-    //     for(uint i = 0; i < s.vaults[_cofi].length; i++) {
-    //         assets[i] = LibToken._toCofiDecimals(
-    //             IERC4626(s.vaults[_cofi][i].vault).asset(),
-    //             _totalValue(s.vaults[_cofi][i].vault)
-    //         );
-    //         assetsTotal += assets[i];
-    //     }
-
-    //     uint256[] memory allocations = new uint256[](assets.length);
-    //     uint256 allocation;
-    //     uint256 targetAllocation;
-    //     target = s.vaults[_cofi][0].vault;
-
-    //     // Return whichever is the smallest relative to target allocation.
-    //     for(uint i = 1; i < assets.length; i++) {
-    //         allocation = assets[i].divPrecisely(assetsTotal);
-    //         targetAllocation = assets[i].percentMul(s.vaults[_cofi][i].allocation);
-    //     }
-    // }
 }

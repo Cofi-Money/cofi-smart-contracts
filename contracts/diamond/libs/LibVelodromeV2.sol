@@ -36,7 +36,7 @@ library LibVelodromeV2 {
             _amountOutMin,
             routes,
             _recipient,
-            block.timestamp + s.swapInfo[_from][_to].wait == 0 ? s.defaultWait : s.swapInfo[_from][_to].wait
+            block.timestamp + (s.swapInfo[_from][_to].wait == 0 ? s.defaultWait : s.swapInfo[_from][_to].wait)
         );
     }
 
@@ -78,7 +78,7 @@ library LibVelodromeV2 {
             _amountOutMin,
             routes,
             _recipient,
-            block.timestamp + s.swapInfo[_from][WETH].wait == 0 ? s.defaultWait : s.swapInfo[_from][WETH].wait
+            block.timestamp + (s.swapInfo[_from][WETH].wait == 0 ? s.defaultWait : s.swapInfo[_from][WETH].wait)
         );
     }
 
@@ -90,19 +90,19 @@ library LibVelodromeV2 {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        routes = new IRouter.Route[](s.route[_from][_to].mid == address(0) ? 1 : 2);
+        routes = new IRouter.Route[](s.swapRouteV2[_from][_to].mid == address(0) ? 1 : 2);
         routes[0] = IRouter.Route({
             from: _from,
-            to: s.route[_from][_to].mid == address(0) ? _to : s.route[_from][_to].mid,
-            stable: s.route[_from][_to].stable[0],
+            to: (s.swapRouteV2[_from][_to].mid == address(0) ? _to : s.swapRouteV2[_from][_to].mid),
+            stable: s.swapRouteV2[_from][_to].stable[0],
             factory: VELODROME_V2_FACTORY
         });
 
-        if (s.route[_from][_to].mid != address(0)) {
+        if (s.swapRouteV2[_from][_to].mid != address(0)) {
             routes[1] = IRouter.Route({
-                from: s.route[_from][_to].mid,
+                from: s.swapRouteV2[_from][_to].mid,
                 to: _to,
-                stable: s.route[_from][_to].stable[1],
+                stable: s.swapRouteV2[_from][_to].stable[1],
                 factory: VELODROME_V2_FACTORY
             });
         }

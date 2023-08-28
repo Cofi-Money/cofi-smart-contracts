@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { SwapProtocol, Route, Modifiers } from '../libs/LibAppStorage.sol';
+import { SwapProtocol, SwapRouteV2, Modifiers } from '../libs/LibAppStorage.sol';
 import { LibSwap } from '../libs/LibSwap.sol';
 
 /**
@@ -65,10 +65,10 @@ contract SwapManagerFacet is Modifiers {
     }
 
     /**
-     * @dev Sets VelodromeV2 (+ UniswapV2) "routes".
+     * @dev Sets UniswapV2 + VelodromeV2 swap routes.
      * @dev Sets forward and reverse order.
      */
-    function setRoute(
+    function setV2Route(
         address _tokenA,
         address _tokenMid,
         address _tokenB,
@@ -77,25 +77,25 @@ contract SwapManagerFacet is Modifiers {
         onlyAdmin
         returns (bool)
     {
-        s.route[_tokenA][_tokenB].mid = _tokenMid;
-        s.route[_tokenB][_tokenA].mid = _tokenMid;
-        s.route[_tokenA][_tokenB].stable = _stable;
-        s.route[_tokenB][_tokenA].stable = _stable;
+        s.swapRouteV2[_tokenA][_tokenB].mid = _tokenMid;
+        s.swapRouteV2[_tokenB][_tokenA].mid = _tokenMid;
+        s.swapRouteV2[_tokenA][_tokenB].stable = _stable;
+        s.swapRouteV2[_tokenB][_tokenA].stable = _stable;
         // Only care about/want to reverse stable order if using a mid.
-        if (s.route[_tokenA][_tokenB].mid != address(0)) {
+        if (s.swapRouteV2[_tokenA][_tokenB].mid != address(0)) {
             // E.g. wETH (=> USDC) => DAI: [false, true]
             // Therefore, DAI (=> USDC) => wETH: [!false, !true] = [true, false]
-            s.route[_tokenB][_tokenA].stable[0] = !_stable[0];
-            s.route[_tokenB][_tokenA].stable[1] = !_stable[1];
+            s.swapRouteV2[_tokenB][_tokenA].stable[0] = !_stable[0];
+            s.swapRouteV2[_tokenB][_tokenA].stable[1] = !_stable[1];
         }
         return true;
     }
 
     /**
-     * @dev Sets UniswapV3 "paths".
+     * @dev Sets UniswapV3 swap routes.
      * @dev Sets forward and reverse order.
      */
-    function setPath(
+    function setV3Route(
         address _tokenA,
         uint24  _poolFee1,
         address _tokenMid,
@@ -105,18 +105,18 @@ contract SwapManagerFacet is Modifiers {
         returns (bool)
     {
         if (_poolFee2 == 0 || _tokenMid == address(0)) {
-            s.path[_tokenA][_tokenB] = abi.encodePacked(_tokenA, _poolFee1, _tokenB);
-            s.path[_tokenB][_tokenA] = abi.encodePacked(_tokenB, _poolFee1, _tokenA);
+            s.swapRouteV3[_tokenA][_tokenB] = abi.encodePacked(_tokenA, _poolFee1, _tokenB);
+            s.swapRouteV3[_tokenB][_tokenA] = abi.encodePacked(_tokenB, _poolFee1, _tokenA);
         }
         else {
-            s.path[_tokenA][_tokenB] = abi.encodePacked(
+            s.swapRouteV3[_tokenA][_tokenB] = abi.encodePacked(
                 _tokenA,
                 _poolFee1,
                 _tokenMid, // Usually wETH.
                 _poolFee2,
                 _tokenB
             );
-            s.path[_tokenB][_tokenA] = abi.encodePacked(
+            s.swapRouteV3[_tokenB][_tokenA] = abi.encodePacked(
                 _tokenB,
                 _poolFee2,
                 _tokenMid, // Usually wETH.
@@ -210,22 +210,22 @@ contract SwapManagerFacet is Modifiers {
         return s.supportedSwaps[_token];
     }
 
-    function getRoute(
+    function getSwapRouteV2(
         address _tokenA,
         address _tokenB
     )   external view
-        returns (Route memory)
+        returns (SwapRouteV2 memory)
     {
-        return s.route[_tokenA][_tokenB];
+        return s.swapRouteV2[_tokenA][_tokenB];
     }
 
-    function getPath(
+    function getSwapRouteV3(
         address _tokenA,
         address _tokenB
     )   external view
         returns (bytes memory)
     {
-        return s.path[_tokenA][_tokenB];
+        return s.swapRouteV3[_tokenA][_tokenB];
     }
 
     function getSlippage(

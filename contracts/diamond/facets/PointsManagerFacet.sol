@@ -14,11 +14,11 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
     █▄▄ █▄█ █▀░ █
 
     @author Sam Goodenough, The Stoa Corporation Ltd.
-    @title  Point Facet
+    @title  Points Manager Facet
     @notice Provides logic for managing and distributing points.
  */
 
-contract PointFacet is Modifiers {
+contract PointsManagerFacet is Modifiers {
     using PercentageMath for uint256;
 
     /*//////////////////////////////////////////////////////////////

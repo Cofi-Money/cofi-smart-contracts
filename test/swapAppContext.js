@@ -30,8 +30,8 @@ const StakingRewards_YVETH_Addr = "0xE35Fec3895Dcecc7d2a91e8ae4fF3c0d43ebfFE0"
 
 const WBTC_Addr = "0x68f180fcCe6836688e9084f035309E29Bf0A2095"
 const SOUSDC_Addr = "0xEC8FEa79026FfEd168cCf5C627c7f486D77b765F"
+const SOWETH_Addr = "0xf7B5965f5C117Eb1B5450187c9DcFccc3C317e8E"
 const SOWBTC_Addr = "0x33865E09A572d4F1CC4d75Afc9ABcc5D3d4d867D"
-const COMPTROLLER_Addr = "0x60cf091cd3f50420d50fd7f707414d0df4751c58"
 
 const NULL_Addr = "0x0000000000000000000000000000000000000000"
 
@@ -71,29 +71,29 @@ describe("Test wrappers in app context", function() {
 
         /* Deploy wrappers */
 
-        // const wsoUSDC = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
-        // const wsoUSDC = await wsoUSDC.deploy(
-        //     YVUSDC_Addr,
-        //     YVOP_Addr,
-        //     StakingRewards_YVUSDC_Addr,
-        //     "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
-        //     USDC_Addr, // want
-        //     getRewardMin,
-        //     amountInMin,
-        //     slippage,
-        //     wait,
-        //     poolFee,
-        //     {gasLimit: "30000000"}
-        // )
-        // await wsoUSDC.waitForDeployment()
-        // console.log("wsoUSDC deployed: ", await wsoUSDC.getAddress())
+        const WYVTKN = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
+        const wyvUSDC = await WYVTKN.deploy(
+            YVUSDC_Addr,
+            YVOP_Addr,
+            StakingRewards_YVUSDC_Addr,
+            "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3", // USDC price feed
+            USDC_Addr, // want
+            getRewardMin,
+            amountInMin,
+            slippage,
+            wait,
+            poolFee,
+            {gasLimit: "30000000"}
+        )
+        await wyvUSDC.waitForDeployment()
+        console.log("wyvUSDC deployed: ", await wyvUSDC.getAddress())
+        // Swap path already set via constructor for Yearn wrappers.
 
-        const WSOUSDC = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")
-        const wsoUSDC = await WSOUSDC.deploy(
+        const WSOTKN = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")
+        const wsoUSDC = await WSOTKN.deploy(
             USDC_Addr,
             OP_Addr,
             SOUSDC_Addr,
-            COMPTROLLER_Addr,
             "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3", // USDC price feed
             "1000000000000000000", // amountInMin = 1 OP
             "200", // slippage = 2%
@@ -102,10 +102,9 @@ describe("Test wrappers in app context", function() {
         await wsoUSDC.waitForDeployment()
         console.log("wsoUSDC deployed: ", await wsoUSDC.getAddress())
         // Although OP-USDC pool exists, OP-wETH-USDC provides better exchange rate.
-        await wsoUSDC.setRoute("500", WETH_Addr, "500")
+        await wsoUSDC.setPath("500", WETH_Addr, "500")
     
-        const WYVETH = await ethers.getContractFactory("YearnV2ERC4626Reinvest")
-        const wyvETH = await WYVETH.deploy(
+        const wyvETH = await WYVTKN.deploy(
             YVETH_Addr,
             YVOP_Addr,
             StakingRewards_YVETH_Addr,
@@ -121,12 +120,25 @@ describe("Test wrappers in app context", function() {
         await wyvETH.waitForDeployment()
         console.log("wyvETH deployed: ", await wyvETH.getAddress())
 
+        const wsoETH = await WSOTKN.deploy(
+            WETH_Addr,
+            OP_Addr,
+            SOWETH_Addr,
+            "0x13e3Ee699D1909E989722E753853AE30b17e08c5", // ETH price feed
+            "1000000000000000000", // amountInMin = 1 OP
+            "200", // slippage = 2%
+            "12" // wait = 12 seconds
+        )
+        await wsoUSDC.waitForDeployment()
+        console.log("wsoUSDC deployed: ", await wsoUSDC.getAddress())
+        // Although OP-USDC pool exists, OP-wETH-USDC provides better exchange rate.
+        await wsoUSDC.setPath("500", WETH_Addr, "500")
+
         const WSOBTC = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")
         const wsoBTC = await WSOBTC.deploy(
             WBTC_Addr,
             OP_Addr,
             SOWBTC_Addr,
-            COMPTROLLER_Addr,
             "0xd702dd976fb76fffc2d3963d037dfdae5b04e593", // BTC price feed
             "1000000000000000000", // amountInMin = 1 OP
             "200", // slippage = 2%

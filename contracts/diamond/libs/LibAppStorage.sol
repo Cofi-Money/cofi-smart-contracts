@@ -24,13 +24,13 @@ struct RewardStatus {
 
 enum SwapProtocol {
     NonExistent,
-    /// @dev + UniswapV2. Uses 'route' mapping.
-    VelodromeV2,
-    /// @dev Uses 'path' mapping.
-    UniswapV3
+    /// @dev VelodromeV2 + UniswapV2.
+    SwapV2,
+    /// @dev UniswapV3.
+    SwapV3
 }
 
-struct Route {
+struct SwapRouteV2 {
     address mid;
     /// @dev If mid = address(0): [false, false] => [false, X] (i.e., 2nd index does not matter).
     bool[2] stable;
@@ -40,50 +40,6 @@ struct SwapInfo {
     uint256 slippage;
     uint256 wait;
 }
-
-struct Vault {
-    address vault;
-    uint256 allocation; // Basis points.
-}
-
-/*//////////////////////////////////////////////////////////////
-                    Loan Types {Update ?}
-//////////////////////////////////////////////////////////////*/
-
-// struct Safe {
-//     uint256 bal; // [shares]
-//     uint256 debt; // [assets]
-//     uint256 deadline;
-// }
-
-// struct Collateral {
-//     uint256 CR;
-//     uint256 duration;
-//     // Collateral earmarked for vaults.
-//     // totalSupply - occupied = redeemable.
-//     uint256 occupied; // [shares]
-//     address debt; // [assets]
-//     address underlying; // [assets]
-//     address pool;
-//     Funnel funnel;
-// }
-
-// struct Funnel {
-//     Stake[] stakes;
-//     // Collateral earmarked for redemptions.
-//     uint256 loaded; // [assets]
-//     uint256 loadFromIndex;
-// }
-
-// struct Stake {
-//     uint256 assets;
-//     address account;
-// }
-
-// struct RedemptionInfo {
-//     uint256 redeemable;
-//     uint256 directRedeemAllowance;
-// }
 
 struct AppStorage {
 
@@ -114,8 +70,8 @@ struct AppStorage {
     // E.g., USDC => 100. Buffer for migrations.
     mapping(address => uint256) buffer;
 
-    // E.g., coUSD => [yvUSDC, wsoUSDC]. Must share the same asset.
-    mapping(address => Vault[]) vaults;
+    // E.g., USDC => yvUSDC.
+    mapping(address => address) vault;
 
     // E.g., coUSD => 1.
     mapping(address => uint8)   mintEnabled;
@@ -123,7 +79,7 @@ struct AppStorage {
     // E.g., coUSD => 1.
     mapping(address => uint8)   redeemEnabled;
 
-    // Decimals of the underlying asset (e.g., USDC => 6).
+    // E.g., USDC => 6; yvUSDC => 6; coUSD => 18.
     mapping(address => uint8)   decimals;
 
     // Indicates if rebases can be called by any account. E.g., coUSD => 0.
@@ -179,11 +135,11 @@ struct AppStorage {
     // E.g., USDC => DAI => SwapRouter.
     mapping(address => mapping(address => SwapProtocol)) swapProtocol;
 
-    // E.g., USDC => DAI => Route. UniswapV2 (+ VelodromeV2) compatibility.
-    mapping(address => mapping(address => Route)) route;
+    // E.g., USDC => DAI => SwapRouteV2. UniswapV2 + VelodromeV2 compatibility.
+    mapping(address => mapping(address => SwapRouteV2)) swapRouteV2;
 
-    // E.g., USDC => DAI => path. UniswapV3 compatibility.
-    mapping(address => mapping(address => bytes)) path;
+    // E.g., USDC => DAI => swap route [bytes]. UniswapV3 compatibility.
+    mapping(address => mapping(address => bytes)) swapRouteV3;
 
     // E.g., USDC => DAI => SwapInfo.
     mapping(address => mapping(address => SwapInfo)) swapInfo;
@@ -198,19 +154,6 @@ struct AppStorage {
     uint256 defaultSlippage;
 
     uint256 defaultWait;
-
-    /*//////////////////////////////////////////////////////////////
-                        Loan Params {Update ?}
-    //////////////////////////////////////////////////////////////*/
-
-    // // E.g., Alice => coUSD => Safe.
-    // mapping(address => mapping(address => Safe)) safe;
-
-    // // E.g., coUSD => Collateral.
-    // mapping(address => Collateral) collateral;
-
-    // // E.g., Alice => coUSD => RedemptionInfo.
-    // mapping(address => mapping(address => RedemptionInfo)) redemptionInfo;
 }
 
 library LibAppStorage {
@@ -234,29 +177,29 @@ contract Modifiers {
         _;
     }
 
-    modifier minDeposit(uint256 _amount, address _fi) {
+    modifier minDeposit(uint256 _amount, address _cofi) {
         require(
-            _amount > s.minDeposit[_fi],
+            _amount > s.minDeposit[_cofi],
             'Insufficient deposit amount for cofi token'
         );
         _;
     }
 
-    modifier minWithdraw(uint256 _amount, address _fi) {
+    modifier minWithdraw(uint256 _amount, address _cofi) {
         require(
-            _amount > s.minWithdraw[_fi],
+            _amount > s.minWithdraw[_cofi],
             'Insufficient withdraw amount for cofi token'
         );
         _;
     }
 
-    modifier mintEnabled(address _fi) {
-        require(s.mintEnabled[_fi] == 1, 'Mint not enabled for cofi token');
+    modifier mintEnabled(address _cofi) {
+        require(s.mintEnabled[_cofi] == 1, 'Mint not enabled for cofi token');
         _;
     }
 
-    modifier redeemEnabled(address _fi) {
-        require(s.redeemEnabled[_fi] == 1, 'Redeem not enabled for cofi token');
+    modifier redeemEnabled(address _cofi) {
+        require(s.redeemEnabled[_cofi] == 1, 'Redeem not enabled for cofi token');
         _;
     }
 

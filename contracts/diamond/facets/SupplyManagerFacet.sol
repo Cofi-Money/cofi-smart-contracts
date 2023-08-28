@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import { Vault, Modifiers } from '../libs/LibAppStorage.sol';
+import { Modifiers } from '../libs/LibAppStorage.sol';
 import { IERC4626 } from '../interfaces/IERC4626.sol';
 
 /**
@@ -23,14 +23,25 @@ contract SupplyManagerFacet is Modifiers {
     /// @dev Set cofi token vars first BEFORE onboarding (refer to LibAppStorage.sol).
     function onboardAsset(
         address _cofi,
-        uint8   _decimals,
-        Vault[] memory _vaults
+        address _vault
     )   external
         onlyAdmin
         returns (bool)
     {
-        s.decimals[_cofi] = _decimals;
-        s.vaults[_cofi] = _vaults;
+        s.vault[_cofi] = _vault;
+        s.decimals[_cofi] = 18;
+        /// @dev Ensure decimals of underlying is already set.
+        s.decimals[_vault] = s.decimals[IERC4626(s.vault[_cofi]).asset()];
+        return true;
+    }
+
+    function setDecimals(
+        address _asset,
+        uint8   _decimals
+    )   external
+        returns (bool)
+    {
+        s.decimals[_asset] = _decimals;
         return true;
     }
 
@@ -116,6 +127,14 @@ contract SupplyManagerFacet is Modifiers {
     /*//////////////////////////////////////////////////////////////
                                 Getters
     //////////////////////////////////////////////////////////////*/
+    
+    function getDecimals(
+        address _asset
+    )   external view
+        returns (uint8)
+    {
+        return s.decimals[_asset];
+    }
 
     function getMinDeposit(
         address _cofi
@@ -178,6 +197,6 @@ contract SupplyManagerFacet is Modifiers {
     )   external view
         returns (address)
     {
-        return IERC4626(s.vaults[_cofi][0].vault).asset();
+        return IERC4626(s.vault[_cofi]).asset();
     }
 }

@@ -27,7 +27,7 @@ library LibUniswapV3 {
         SafeERC20.safeApprove(IERC20(_from), address(UNISWAP_V3_ROUTER), _amountIn);
 
         return UNISWAP_V3_ROUTER.exactInput(ISwapRouter.ExactInputParams({
-            path: s.path[_from][_to],
+            path: s.swapRouteV3[_from][_to],
             recipient: _recipient,
             deadline: block.timestamp + (s.swapInfo[_from][_to].wait == 0 ?
                 s.defaultWait :
@@ -46,7 +46,7 @@ library LibUniswapV3 {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         return UNISWAP_V3_ROUTER.exactInput{value: msg.value}(ISwapRouter.ExactInputParams({
-            path: s.path[address(WETH)][_to],
+            path: s.swapRouteV3[address(WETH)][_to],
             recipient: address(this),
             deadline: block.timestamp + (s.swapInfo[WETH][_to].wait == 0 ?
                 s.defaultWait :

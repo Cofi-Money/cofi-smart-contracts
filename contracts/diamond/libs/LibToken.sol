@@ -198,53 +198,10 @@ library LibToken {
         ICOFIToken(_cofi).unlock(_from, _amount);
     }
 
-    // /**
-    //  * @notice Updates cofi token supply to assets held in vault. Used to distribute earnings.
-    //  * @param _cofi The cofi token to distribute earnings for.
-    //  */
-    // function _poke(
-    //     address _cofi
-    // )   internal
-    //     returns (uint256 assets, uint256 yield, uint256 shareYield)
-    // {
-    //     AppStorage storage s = LibAppStorage.diamondStorage();
-
-    //     uint256 currentSupply = IERC20(_cofi).totalSupply();
-    //     if (currentSupply == 0) {
-    //         emit TotalSupplyUpdated(_cofi, 0, 0, 1e18, 0);
-    //         return (0, 0, 0); 
-    //     }
-    //     // Preemptively harvest if necessary for vault.
-    //     if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(s.vault[_cofi]);
-        
-    //     assets = _toCofiDecimals(s.underlying[_cofi], LibVault._totalValue(s.vault[_cofi]));
-
-    //     if (assets > currentSupply) {
-
-    //         yield = assets - currentSupply;
-
-    //         shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
-
-    //         _changeSupply(
-    //             _cofi,
-    //             currentSupply + shareYield,
-    //             yield,
-    //             yield - shareYield
-    //         );
-    //         if (yield - shareYield > 0)
-    //             _mint(_cofi, s.feeCollector, yield - shareYield);
-    //     } else {
-    //         emit TotalSupplyUpdated(
-    //             _cofi,
-    //             assets,
-    //             0,
-    //             _getRebasingCreditsPerToken(_cofi),
-    //             0
-    //         );
-    //         return (assets, 0, 0);
-    //     }
-    // }
-
+    /**
+     * @notice Updates cofi token supply to assets held in vault. Used to distribute earnings.
+     * @param _cofi The cofi token to distribute earnings for.
+     */
     function _poke(
         address _cofi
     )   internal
@@ -255,20 +212,15 @@ library LibToken {
         uint256 currentSupply = IERC20(_cofi).totalSupply();
         if (currentSupply == 0) return (0, 0, 0); 
 
-        for (uint i = 0; i < s.vaults[_cofi].length; i++) {
-            // Preemptively harvest if necessary for vault.
-            if (s.harvestable[s.vaults[_cofi][i].vault] == 1)
-                LibVault._harvest(s.vaults[_cofi][i].vault);
-            
-            assets += _toCofiDecimals(
-                IERC4626(s.vaults[_cofi][0].vault).asset(),
-                LibVault._totalValue(s.vaults[_cofi][i].vault)
-            );
-        }
+        // Preemptively harvest if necessary for vault.
+        if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(s.vault[_cofi]);
+        
+        assets = _toCofiDecimals(s.vault[_cofi], LibVault._totalValue(s.vault[_cofi]));
 
         if (assets > currentSupply) {
 
             yield = assets - currentSupply;
+
             shareYield = yield.percentMul(1e4 - s.serviceFee[_cofi]);
 
             _changeSupply(
@@ -412,23 +364,6 @@ library LibToken {
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
-        return _amount.scaleBy(
-            uint256(s.decimals[IERC4626(s.vaults[_cofi][0].vault).asset()]), 18
-        );
-    }
-
-    /**
-     * @notice  Applies default slippage, used for depositing to and redeeming from
-     *          ERC4626 vaults.
-     * @param _amount The amount of tokens to apply slippage for (cofi or underlying).
-     */
-    function _applySlippage(
-        uint256 _amount
-    )   internal view
-        returns (uint256)
-    {
-        AppStorage storage s = LibAppStorage.diamondStorage();
-
-        return _amount.percentMul(1e4 - s.defaultSlippage);
+        return _amount.scaleBy(uint256(s.decimals[s.vault[_cofi]]), 18);
     }
 }

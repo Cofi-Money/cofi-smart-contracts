@@ -1,3 +1,56 @@
+// LibAppStorage.sol
+/*//////////////////////////////////////////////////////////////
+                    Loan Types {Update ?}
+//////////////////////////////////////////////////////////////*/
+
+// struct Safe {
+//     uint256 bal; // [shares]
+//     uint256 debt; // [assets]
+//     uint256 deadline;
+// }
+
+// struct Collateral {
+//     uint256 CR;
+//     uint256 duration;
+//     // Collateral earmarked for vaults.
+//     // totalSupply - occupied = redeemable.
+//     uint256 occupied; // [shares]
+//     address debt; // [assets]
+//     address underlying; // [assets]
+//     address pool;
+//     Funnel funnel;
+// }
+
+// struct Funnel {
+//     Stake[] stakes;
+//     // Collateral earmarked for redemptions.
+//     uint256 loaded; // [assets]
+//     uint256 loadFromIndex;
+// }
+
+// struct Stake {
+//     uint256 assets;
+//     address account;
+// }
+
+// struct RedemptionInfo {
+//     uint256 redeemable;
+//     uint256 directRedeemAllowance;
+// }
+
+/*//////////////////////////////////////////////////////////////
+                    Loan Params {Update ?}
+//////////////////////////////////////////////////////////////*/
+
+// // E.g., Alice => coUSD => Safe.
+// mapping(address => mapping(address => Safe)) safe;
+
+// // E.g., coUSD => Collateral.
+// mapping(address => Collateral) collateral;
+
+// // E.g., Alice => coUSD => RedemptionInfo.
+// mapping(address => mapping(address => RedemptionInfo)) redemptionInfo;
+
 // // SPDX-License-Identifier: MIT
 // pragma solidity ^0.8.0;
 

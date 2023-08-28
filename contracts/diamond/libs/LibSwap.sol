@@ -228,8 +228,7 @@ library LibSwap {
         AppStorage storage s = LibAppStorage.diamondStorage();
 
         // I,e,, if asset is a cofi token, use its underlying as its price.
-        if (s.vaults[_asset].length != 0) _asset =
-            IERC4626(s.vaults[_asset][0].vault).asset();
+        if (s.vault[_asset] != address(0)) _asset = IERC4626(s.vault[_asset]).asset();
 
         // If _to not set, assume USD.
         if (s.priceFeed[_asset] == address(0)) return 1e8;
