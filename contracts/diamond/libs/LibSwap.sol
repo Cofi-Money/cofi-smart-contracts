@@ -127,7 +127,7 @@ library LibSwap {
             WETH.withdraw(_amountIn);
             (bool sent, ) = payable(_recipient).call{value: _amountIn}("");
             require(sent, 'LibSwap: Failed to send Ether');
-            amountOut = _amountIn;
+            return _amountIn;
         }
 
         require(s.swapProtocol[_from][address(WETH)] > SwapProtocol(0), 'LibSwap: Swap protocol not set');
@@ -152,7 +152,7 @@ library LibSwap {
             // Second, unwrap.
             WETH.withdraw(amountOut);
             // Transfer Ether.
-            (bool sent, ) = payable(_recipient).call{value: _amountIn}("");
+            (bool sent, ) = payable(_recipient).call{value: amountOut}(""); // _amountIn (?)
             require(sent, 'LibSwap: Failed to send Ether');
         }
         emit Swap(_from, address(WETH), _amountIn, amountOut, _recipient);

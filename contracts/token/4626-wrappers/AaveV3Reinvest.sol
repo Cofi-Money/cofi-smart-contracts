@@ -11,11 +11,11 @@ import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-/// @title AaveV3ERC4626Reinvest
+/// @title AaveV3Reinvest
 /// @notice Extended implementation of yield-daddy's ERC4626 for Aave V3 with rewards reinvesting
 /// @notice Reinvests rewards accrued for higher APY
 /// @author ZeroPoint Labs
-contract AaveV3ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
+contract AaveV3Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     /*//////////////////////////////////////////////////////////////
                         LIBRARIES USAGES
     //////////////////////////////////////////////////////////////*/

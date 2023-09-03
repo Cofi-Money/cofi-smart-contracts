@@ -23,14 +23,14 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
 
     @author Sam Goodenough, The Stoa Corporation Ltd.
             (Adapted from ZeroPoint Labs).
-    @title  CompoundV2ERC4626Wrapper
+    @title  CompoundV2Reinvest
     @notice Custom implementation of yield-daddy wrapper with flexible
             reinvesting logic.
     @dev    This is a passthrough wrapper and hence underlying assets reside
             in the respective protocol.
  */
 
-contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
+contract CompoundV2Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
 
     /*//////////////////////////////////////////////////////////////
                             LIBRARIES USAGE
@@ -76,7 +76,8 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     ICERC20 public immutable cToken;
 
     /// @notice The Compound comptroller contract
-    IComptroller public immutable comptroller;
+    IComptroller public immutable comptroller = 
+        IComptroller(0x60CF091cD3f50420d50fD7f707414d0DF4751C58);
 
     /// @notice Pointer to swapInfo
     bytes public swapPath;
@@ -121,7 +122,6 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     /// @param _asset       The address of the underlying asset.
     /// @param _reward      The address of the reward token.
     /// @param _cToken      The address of the cToken.
-    /// @param _comptroller The address of the comptroller.
     /// @param _amountInMin The min amount of reward to execute swap for.
     /// @param _slippage    The max slippage incurred by swap (in basis points).
     /// @param _wait        The max wait time for swap execution (in seconds).
@@ -129,7 +129,6 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
         ERC20        _asset,    // Underlying
         ERC20        _reward,   // COMP token or other
         ICERC20      _cToken,   // Compound concept of a share
-        IComptroller _comptroller,
         AggregatorV3Interface _wantPriceFeed,
         uint256 _amountInMin,
         uint256 _slippage,
@@ -141,7 +140,6 @@ contract CompoundV2ERC4626Reinvest is ERC4626, Ownable2Step, ReentrancyGuard {
     ) {
         reward          = _reward;
         cToken          = _cToken;
-        comptroller     = _comptroller;
         wantPriceFeed   = _wantPriceFeed;
         ICERC20[] memory cTokens = new ICERC20[](1);
         cTokens[0] = cToken;

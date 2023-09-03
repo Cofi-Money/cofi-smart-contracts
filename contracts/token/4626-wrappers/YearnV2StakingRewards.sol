@@ -22,14 +22,14 @@ import 'hardhat/console.sol';
     █▄▄ █▄█ █▀░ █
 
     @author The Stoa Corporation Ltd. (Adapted from RobAnon, 0xTraub, 0xTinder).
-    @title  YearnERC4626Wrapper
+    @title  YearnV2StakingRewards
     @notice Provides 4626-compatibility and functions for reinvesting
             staking rewards.
     @dev    This is a passthrough wrapper and hence underlying assets reside
             in the respective protocol.
  */
 
-contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, ReentrancyGuard {
+contract YearnV2StakingRewards is ERC4626, IVaultWrapper, Ownable2Step, ReentrancyGuard {
 
     /*//////////////////////////////////////////////////////////////
                             LIBRARIES USAGE
@@ -107,19 +107,19 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         VaultAPI _rewardVault,
         IStakingRewards _stakingRewards,
         AggregatorV3Interface _wantPriceFeed,
-        address _underlying,
         uint256 _getRewardMin,
         uint256 _amountInMin,
         uint256 _slippage,
         uint256 _wait,
-        uint24  _poolFee
+        uint24  _poolFee,
+        uint8   _enabled
     )
         ERC20(
             string(abi.encodePacked('COFI Wrapped ', _vault.name())),
             string(abi.encodePacked('cw', _vault.symbol()))
         )
         ERC4626(
-            IERC20(_underlying) // OZ contract retrieves decimals from asset
+            IERC20(_vault.token()) // OZ contract retrieves decimals from asset
         )
     {
         yVault          = _vault;
@@ -131,7 +131,7 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         swapParams.slippage     = _slippage;
         swapParams.wait         = _wait;
         swapParams.poolFee      = _poolFee;
-        swapParams.enabled      = 1;
+        swapParams.enabled      = _enabled;
         admin[msg.sender]       = 1;
         authorizedEnabled = 1;
     }
@@ -532,10 +532,8 @@ contract YearnV2ERC4626Reinvest is ERC4626, IVaultWrapper, Ownable2Step, Reentra
         SafeERC20.safeApprove(_token, address(stakingRewardsZap), _amount);
 
         uint256 beforeBal = _token.balanceOf(address(this));
-        console.log('Zapping in');
         // Returns 'toStake'
         mintedShares = stakingRewardsZap.zapIn(address(yVault), _amount);
-        console.log('Zapped in');
 
         uint256 afterBal = _token.balanceOf(address(this));
         deposited = beforeBal - afterBal;

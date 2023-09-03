@@ -2,10 +2,10 @@
 pragma solidity ^0.8.0;
 
 import { ISwapRouter } from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
-import { IWETH } from '../diamond/interfaces/IWETH.sol';
-import { PercentageMath } from "../diamond/libs/external/PercentageMath.sol";
-import { StableMath } from "../diamond/libs/external/StableMath.sol";
-import { FixedPointMath } from "../diamond/libs/external/FixedPointMath.sol";
+import { IWETH } from '../../diamond/interfaces/IWETH.sol';
+import { PercentageMath } from "../../diamond/libs/external/PercentageMath.sol";
+import { StableMath } from "../../diamond/libs/external/StableMath.sol";
+import { FixedPointMath } from "../../diamond/libs/external/FixedPointMath.sol";
 import { ERC20 } from 'solmate/src/tokens/ERC20.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
 import 'hardhat/console.sol';

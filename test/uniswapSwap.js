@@ -47,16 +47,16 @@ describe("Test Uniswap", function() {
         console.log("Uniswap Swap contract deployed: ", await uniswapSwap.getAddress())
 
         // Transfer USDC to owner.
-        // const whaleUSDC = await ethers.getImpersonatedSigner(USDCWhale_Addr)
-        // const whaleUsdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleUSDC)
-        // await whaleUsdc.transfer(await owner.getAddress(), '1000000000') // 1,000 USDC
-        // console.log("Transferred USDC")
+        const whaleUSDC = await ethers.getImpersonatedSigner(USDCWhale_Addr)
+        const whaleUsdc = (await ethers.getContractAt(USDC_ABI, USDC_Addr)).connect(whaleUSDC)
+        await whaleUsdc.transfer(await owner.getAddress(), '1000000000') // 1,000 USDC
+        console.log("Transferred USDC")
 
         // Transfer DAI to owner.
-        // const whaleDAI = await ethers.getImpersonatedSigner(DAIWhale_Addr)
-        // const whaleDai = (await ethers.getContractAt(DAI_ABI, DAI_Addr)).connect(whaleDAI)
-        // await whaleDai.transfer(await owner.getAddress(), ethers.parseEther('1000')) // 1,000 DAI
-        // console.log("Transferred DAI")
+        const whaleDAI = await ethers.getImpersonatedSigner(DAIWhale_Addr)
+        const whaleDai = (await ethers.getContractAt(DAI_ABI, DAI_Addr)).connect(whaleDAI)
+        await whaleDai.transfer(await owner.getAddress(), ethers.parseEther('1000')) // 1,000 DAI
+        console.log("Transferred DAI")
 
         // Transfer wETH to owner.
         const whaleWETH = await ethers.getImpersonatedSigner(WETHWhale_Addr)
@@ -79,7 +79,7 @@ describe("Test Uniswap", function() {
         // wETH => wBTC (+ WBTC => wETH).
         await uniswapSwap.setPath(
             WETH_Addr,
-            '3000',
+            '500',
             NULL_Addr,
             0,
             WBTC_Addr
@@ -89,9 +89,9 @@ describe("Test Uniswap", function() {
         // OP (=> wETH) => wBTC (+ wBTC (=> wETH) => OP).
         await uniswapSwap.setPath(
             OP_Addr,
-            '3000',
+            '500',
             WETH_Addr,
-            '3000',
+            '500',
             WBTC_Addr
         )
         console.log('Set OP <=> wBTC')
@@ -116,14 +116,14 @@ describe("Test Uniswap", function() {
         // )
 
         // Set ETH (=> wETH) => USDC swap route (+ wETH => USDC; USDC (=> wETH) => ETH; + USDC => wETH).
-        // await uniswapSwap.setPath(
-        //     WETH_Addr,
-        //     '',
-        //     NULL_Addr,
-        //     0,
-        //     USDC_Addr
-        // )
-        // console.log("Set wETH => DAI route")
+        await uniswapSwap.setPath(
+            WETH_Addr,
+            '500',
+            NULL_Addr,
+            0,
+            USDC_Addr
+        )
+        console.log("Set wETH => DAI route")
 
         await uniswapSwap.setDecimals(WBTC_Addr, 8);
         await uniswapSwap.setDecimals(OP_Addr, 18);
@@ -211,6 +211,25 @@ describe("Test Uniswap", function() {
     })
 
     it("Should swap ETH for wBTC", async function() {
+
+        const { uniswapSwap, wbtc, weth, owner } = await loadFixture(deploy)
+
+        console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+        console.log("wETH bal: ", await weth.balanceOf(await owner.getAddress()))
+
+        await uniswapSwap.exactInputETH(
+            WBTC_Addr,
+            {value: ethers.parseEther('2')}
+        )
+
+        console.log("wBTC bal: ", await wbtc.balanceOf(await uniswapSwap.getAddress()))
+        // Should be 0.
+        console.log("wETH bal: ", await weth.balanceOf(await uniswapSwap.getAddress()))
+        console.log("wETH bal: ", await weth.balanceOf(await owner.getAddress()))
+        console.log("ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+    })
+
+    it("Should swap USDC for ETH", async function() {
 
         const { uniswapSwap, wbtc, weth, owner } = await loadFixture(deploy)
 

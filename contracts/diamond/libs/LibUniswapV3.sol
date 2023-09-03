@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { ISwapRouter } from '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'hardhat/console.sol';
 
 library LibUniswapV3 {
 
@@ -47,6 +48,7 @@ library LibUniswapV3 {
 
         return UNISWAP_V3_ROUTER.exactInput{value: msg.value}(ISwapRouter.ExactInputParams({
             path: s.swapRouteV3[address(WETH)][_to],
+            /// @dev As ETH is for entering only, recipient will only ever be this contract.
             recipient: address(this),
             deadline: block.timestamp + (s.swapInfo[WETH][_to].wait == 0 ?
                 s.defaultWait :

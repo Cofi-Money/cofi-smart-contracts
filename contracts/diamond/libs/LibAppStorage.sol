@@ -150,6 +150,9 @@ struct AppStorage {
     // E.g., USDC => Chainlink USDC price oracle.
     mapping(address => address) priceFeed;
 
+    // E.g., wyvETH => wsoWETH; yvUSDC => wsoDAI.
+    mapping(address => mapping(address => uint8)) migrationEnabled;
+
     // Applies to swap and wrap operations.
     uint256 defaultSlippage;
 

@@ -61,6 +61,8 @@ contract SupplyFacet is Modifiers {
             _recipient,
             _referral
         );
+        console.log('mintAfterFee: %s', mintAfterFee);
+        console.log('underlyingOut: %s', underlyingOut);
         emit LibToken.Deposit(underlying, underlyingOut, msg.sender, fee);
     }
 
@@ -142,15 +144,18 @@ contract SupplyFacet is Modifiers {
             _cofiIn,
             _cofi,
             _depositFrom,
-            _recipient
+            address(this)
         );
-
+        console.log('amountIn: %s', LibToken._toUnderlyingDecimals(_cofi, burnAfterFee));
+        console.log('bal: %s', IERC20(IERC4626(s.vault[_cofi]).asset()).balanceOf(address(this)));
         ETHOut = LibSwap._swapERC20ForETH(
-            burnAfterFee,
+            LibToken._toUnderlyingDecimals(_cofi, burnAfterFee),
             IERC4626(s.vault[_cofi]).asset(),
             _recipient
         );
     }
+    // 1847473525
+    // 1947473524
 
     /**
      * @notice Enables user to exit app and receive supported tokens.
@@ -172,22 +177,32 @@ contract SupplyFacet is Modifiers {
     {
         address underlying = IERC4626(s.vault[_cofi]).asset();
 
+        if (_token == underlying) {
+            burnAfterFee = _cofiToUnderlying(
+                _cofiIn,
+                _cofi,
+                _depositFrom,
+                _recipient
+            );
+            return (burnAfterFee, burnAfterFee);
+        }
+
         burnAfterFee = _cofiToUnderlying(
             _cofiIn,
             _cofi,
             _depositFrom,
-            _recipient
+            address(this)
         );
 
-        if (_token != underlying) {
-            return (
-                burnAfterFee,
-                LibSwap._swapERC20ForERC20(burnAfterFee, underlying, _token, _recipient)
-            );
-        } else {
-            LibToken._transfer(_token, burnAfterFee, _recipient);
-            return (burnAfterFee, burnAfterFee);
-        }
+        return (
+            burnAfterFee,
+            LibSwap._swapERC20ForERC20(
+                LibToken._toUnderlyingDecimals(_cofi, burnAfterFee),
+                underlying,
+                _token,
+                _recipient
+            )
+        );
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -248,13 +263,13 @@ contract SupplyFacet is Modifiers {
     {
         // Preemptively rebases if enabled.
         if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
-
+        console.log('r1');
         SafeERC20.safeApprove(
             IERC20(IERC4626(s.vault[_cofi]).asset()),
             s.vault[_cofi],
             _underlyingIn
         );
-
+        console.log('r2');
         uint256 assets = LibToken._toCofiDecimals(
             s.vault[_cofi],
             LibVault._getAssets(
@@ -265,7 +280,7 @@ contract SupplyFacet is Modifiers {
                 s.vault[_cofi]
             )
         );
-
+        console.log('r3');
         require(
             assets >= _underlyingIn.percentMul(1e4 - s.defaultSlippage),
             'SupplyFacet: Slippage exceeded'
@@ -332,9 +347,11 @@ contract SupplyFacet is Modifiers {
             s.vault[_cofi],
             _recipient
         );
+        console.log('assets: %s', assets);
+        console.log('x: %s', LibToken._toUnderlyingDecimals(_cofi, burnAfterFee).percentMul(1e4 - s.defaultSlippage));
 
         require(
-            assets >= burnAfterFee.percentMul(1e4 - s.defaultSlippage),
+            assets >= LibToken._toUnderlyingDecimals(_cofi, burnAfterFee).percentMul(1e4 - s.defaultSlippage),
             'SupplyFacet: Slippage exceeded'
         );
 
@@ -358,14 +375,11 @@ contract SupplyFacet is Modifiers {
     /// @notice Returns the estimated tokens out (incl. ETH) from the amount of cofi tokens deposited.
     function getEstimatedTokensOut(
         uint256 _cofiIn,
-        address _token,
-        address _cofi
+        address _cofi,
+        address _token
     )   public view
         returns (uint256 cofiOut)
     {
-        // For withdrawals, fee is applied BEFORE swap op.
-        uint256 _tokensIn = _cofiIn - LibToken._getRedeemFee(_cofi, _cofiIn);
-
-        return LibSwap._getConversion(_tokensIn, 0, _token, _cofi);
+        return LibSwap._getConversion(_cofiIn, s.redeemFee[_cofi], _cofi, _token);
     }
 }

@@ -67,6 +67,10 @@ contract VaultManagerFacet is Modifiers {
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
             'YieldFacet: Caller not Upkeep or Admin'
         );
+        require(
+            s.migrationEnabled[s.vault[_cofi]][_newVault] == 1,
+            'VaultManagerFacet: Migration from current vault to new vault disabled'
+        );
 
         // Pull funds from old vault.
         uint256 assets = IERC4626(s.vault[_cofi]).redeem(
@@ -154,6 +158,18 @@ contract VaultManagerFacet is Modifiers {
         returns (bool)
     {
         s.buffer[_underlying] = _buffer;
+        return true;
+    }
+
+    function setMigrationEnabled(
+        address _vaultA,
+        address _vaultB,
+        uint8   _enabled
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        s.migrationEnabled[_vaultA][_vaultB] = _enabled;
         return true;
     }
 
