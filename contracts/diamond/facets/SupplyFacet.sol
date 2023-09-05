@@ -273,18 +273,20 @@ contract SupplyFacet is Modifiers {
         );
 
         require(
-            assets > _underlyingIn.percentMul(1e4 - s.defaultSlippage),
+            assets > LibToken._toCofiDecimals(_underlying, _underlyingIn)
+                .percentMul(1e4 - s.defaultSlippage),
             'SupplyFacet: Slippage exceeded'
         );
         require(
-            assets < _underlyingIn.percentMul(1e4 + s.upperLimit),
+            assets < LibToken._toCofiDecimals(_underlying, _underlyingIn)
+                .percentMul(1e4 + s.supplyLimit[_cofi]),
             'SupplyFacet: Assets value exceeds upper limit check'
         );
 
         fee = LibToken._getMintFee(_cofi, assets);
         mintAfterFee = assets - fee;
 
-        // Capture mint fee in co tokens.
+        // Capture mint fee in cofi tokens.
         if (fee > 0) LibToken._mint(_cofi, s.feeCollector, fee);
 
         LibToken._mintOptIn(_cofi, _recipient, mintAfterFee);
@@ -350,7 +352,7 @@ contract SupplyFacet is Modifiers {
         );
         require(
             assets < LibToken._toUnderlyingDecimals(_cofi, burnAfterFee)
-                .percentMul(1e4 + s.upperLimit),
+                .percentMul(1e4 + s.supplyLimit[_cofi]),
             'SupplyFacet: Assets value exceeds upper limit check'
         );
 

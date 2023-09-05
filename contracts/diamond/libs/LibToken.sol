@@ -222,6 +222,10 @@ library LibToken {
         );
 
         if (assets > currentSupply) {
+            require(
+                assets < currentSupply.percentMul(1e4 + s.rateLimit[_cofi]),
+                'LibToken: Supply update exceeds rate limit'
+            );
 
             yield = assets - currentSupply;
 

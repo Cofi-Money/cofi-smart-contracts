@@ -124,6 +124,17 @@ contract SupplyManagerFacet is Modifiers {
         return true;
     }
 
+    function setSupplyLimit(
+        address _cofi,
+        uint256 _supplyLimit
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        s.supplyLimit[_cofi] = _supplyLimit;
+        return true;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                 Getters
     //////////////////////////////////////////////////////////////*/
@@ -190,6 +201,14 @@ contract SupplyManagerFacet is Modifiers {
         returns (uint256)
     {
         return s.serviceFee[_cofi];
+    }
+
+    function getSupplyLimit(
+        address _cofi
+    )   external view
+        returns (uint256)
+    {
+        return s.supplyLimit[_cofi];
     }
 
     function getUnderlying(

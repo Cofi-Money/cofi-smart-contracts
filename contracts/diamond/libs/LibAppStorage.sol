@@ -70,6 +70,12 @@ struct AppStorage {
     // E.g., USDC => 100. Buffer for migrations.
     mapping(address => uint256) buffer;
 
+    // Limit to how many COFI tokens user receives from underlying tokens and vice versa.
+    mapping(address => uint256) supplyLimit;
+
+    // Limit to how much yield can be collected per rebase.
+    mapping(address => uint256) rateLimit;
+
     // E.g., USDC => yvUSDC.
     mapping(address => address) vault;
 
@@ -87,9 +93,6 @@ struct AppStorage {
 
     // Indicated if rebase operation should harvest vault beforehand (e.g., swap reward for want).
     mapping(address => uint8)   harvestable;
-
-    // Added security check to 
-    uint256 upperLimit;
 
     /*//////////////////////////////////////////////////////////////
                             Rewards Params

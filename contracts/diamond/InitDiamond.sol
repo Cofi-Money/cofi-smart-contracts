@@ -110,15 +110,6 @@ contract InitDiamond {
         s.decimals[WETH]    = 18;
         s.decimals[WBTC]    = 8;
         s.decimals[OP]      = 18;
-        s.decimals[_args.coUSD] = 18;
-        s.decimals[_args.coETH] = 18;
-        s.decimals[_args.coBTC] = 18;
-        s.decimals[_args.coOP]  = 18;
-        // s.decimals[_args.vUSD] = 6;
-        s.decimals[_args.vUSD]  = 18;
-        s.decimals[_args.vETH]  = 18;
-        s.decimals[_args.vBTC]  = 8;
-        s.decimals[_args.vOP]   = 18;
 
         // 10 USDC buffer for migrations.
         s.buffer[USDC]  = 10*10**uint256(s.decimals[USDC]);
@@ -134,6 +125,16 @@ contract InitDiamond {
         // Set swap params (UniswapV3 is preferred option for all swaps currently).
         s.defaultSlippage = 200; // 2%
         s.defaultWait = 12; // 12 seconds
+
+        // Best practice to decrease limits as TVL increases.
+        s.supplyLimit[_args.coUSD]  = 200; // 2%
+        s.supplyLimit[_args.coBTC]  = 200; // 2%
+        s.supplyLimit[_args.coETH]  = 200; // 2%
+        s.supplyLimit[_args.coOP]   = 200; // 2%
+        s.rateLimit[_args.coUSD]    = 20000; // 20%
+        s.rateLimit[_args.coETH]    = 20000; // 20%
+        s.rateLimit[_args.coBTC]    = 20000; // 20%
+        s.rateLimit[_args.coOP]     = 20000; // 20%
 
         // ETH (=> wETH) => USDC and back.
         s.swapRouteV3[WETH][USDC] = abi.encodePacked(
@@ -204,21 +205,21 @@ contract InitDiamond {
         s.supportedSwaps[WETH].push(WBTC);
         s.supportedSwaps[WBTC].push(WETH);
 
-        // // ETH (=> wETH) => wBTC and back.
-        // s.swapRouteV3[WETH][OP] = abi.encodePacked(
-        //     WETH,
-        //     uint24(500),
-        //     OP
-        // );
-        // s.swapRouteV3[OP][WETH] = abi.encodePacked(
-        //     OP,
-        //     uint24(500),
-        //     WETH
-        // );
-        // s.swapProtocol[WETH][OP] = SwapProtocol(2);
-        // s.swapProtocol[OP][WETH] = SwapProtocol(2);
-        // s.supportedSwaps[WETH].push(OP);
-        // s.supportedSwaps[OP].push(WETH);
+        // ETH (=> wETH) => wBTC and back.
+        s.swapRouteV3[WETH][OP] = abi.encodePacked(
+            WETH,
+            uint24(500),
+            OP
+        );
+        s.swapRouteV3[OP][WETH] = abi.encodePacked(
+            OP,
+            uint24(500),
+            WETH
+        );
+        s.swapProtocol[WETH][OP] = SwapProtocol(2);
+        s.swapProtocol[OP][WETH] = SwapProtocol(2);
+        s.supportedSwaps[WETH].push(OP);
+        s.supportedSwaps[OP].push(WETH);
 
         s.priceFeed[USDC]   = 0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3;
         s.priceFeed[DAI]    = 0x8dBa75e83DA73cc766A7e5a0ee71F656BAb470d6;

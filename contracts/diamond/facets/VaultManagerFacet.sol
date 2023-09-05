@@ -120,10 +120,7 @@ contract VaultManagerFacet is Modifiers {
         uint256 newAssets = LibVault._totalValue(_newVault);
         /// @dev No need to convert decimals as both values denominated in same asset.
         require(assets <= newAssets, 'VaultManagerFacet: Vault migration slippage exceeded');
-        require(
-            newAssets < newAssets.percentMul(1e4 + s.upperLimit),
-            'VaultManagerFacet: New assets value exceeds upper limit check'
-        );
+
         emit LibVault.VaultMigration(
             _cofi,
             s.vault[_cofi],
@@ -185,14 +182,14 @@ contract VaultManagerFacet is Modifiers {
         return true;
     }
 
-    function setUpperLimit(
-        uint256 _upperLimit
+    function setRateLimit(
+        address _cofi,
+        uint256 _rateLimit
     )   external
         onlyAdmin
         returns (bool)
     {
-        require(_upperLimit > 0, 'VaultManagerFacet: Cannot set upper limit to 0');
-        s.upperLimit = _upperLimit;
+        s.rateLimit[_cofi] = _rateLimit;
         return true;
     }
 
@@ -264,11 +261,12 @@ contract VaultManagerFacet is Modifiers {
         return s.vault[_cofi];
     }
 
-    function getUpperLimit(
+    function getRateLimit(
+        address _cofi
     )   external view
         returns (uint256)
     {
-        return s.upperLimit;
+        return s.rateLimit[_cofi];
     }
 
     /**
