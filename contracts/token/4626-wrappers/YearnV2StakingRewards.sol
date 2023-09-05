@@ -201,6 +201,7 @@ contract YearnV2StakingRewards is ERC4626, IVaultWrapper, Ownable2Step, Reentran
         // yVault always has same decimals as its underlying
             .percentMul(1e4 - swapParams.slippage)
             .scaleBy(decimals(), yVaultReward.decimals());
+        console.log('amountOutMin: %s', amountOutMin);
 
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
             .ExactInputSingleParams({
@@ -215,6 +216,7 @@ contract YearnV2StakingRewards is ERC4626, IVaultWrapper, Ownable2Step, Reentran
             });
 
         amountOut = swapRouter.exactInputSingle(params);
+        console.log('amountOut: %s', amountOut);
     }
 
     /// @return answer with 8 decimals

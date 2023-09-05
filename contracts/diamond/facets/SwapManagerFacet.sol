@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import { SwapProtocol, SwapRouteV2, Modifiers } from '../libs/LibAppStorage.sol';
 import { LibSwap } from '../libs/LibSwap.sol';
+import { IERC4626 } from '../interfaces/IERC4626.sol';
 
 /**
 
@@ -23,8 +24,7 @@ contract SwapManagerFacet is Modifiers {
     /**
      * @dev Sets the swap protocol used to execute a swap between two tokens.
      * @dev Sets forward and reverse order.
-     * @dev Need to ensure that either 'route' has been set if setting to
-     * VelodromeV2 (+ UniswapV2) or 'path' has been set if setting to UniswapV3.
+     * @dev Need to ensure that swap route has been set beforehand.
      */
     function setSwapProtocol(
         address _tokenA,
@@ -199,14 +199,27 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (SwapProtocol)
     {
+        // If tokenA = coUSD, e.g., returns its underlying USDC.
+        _tokenA = _getForCofi(_tokenA);
+        _tokenB = _getForCofi(_tokenB);
         return s.swapProtocol[_tokenA][_tokenB];
     }
 
+    /**
+     * @notice  Returns an array of tokens that are supported for swapping between.
+     *          ETH/wETH are supported for all COFI tokens by default, as well as its current
+     *          underlying token, so the array excludes these.
+     *          E.g., coUSD => [DAI] (+ current underlying USDC) (+ ETH/wETH) are supported
+     *          when minting and burning coUSD via 'enterCofi()' and 'exitCofi()' functions, respectively.
+     *          2nd e.g., coBTC => []. Therfore can only mint coBTC with its underlying (wBTC)
+     *          or ETH/wETH.
+     */
     function getSupportedSwaps(
         address _token
     )   external view
         returns (address[] memory)
     {
+        _token = _getForCofi(_token);
         return s.supportedSwaps[_token];
     }
 
@@ -216,6 +229,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (SwapRouteV2 memory)
     {
+        _tokenA = _getForCofi(_tokenA);
+        _tokenB = _getForCofi(_tokenB);
         return s.swapRouteV2[_tokenA][_tokenB];
     }
 
@@ -225,6 +240,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (bytes memory)
     {
+        _tokenA = _getForCofi(_tokenA);
+        _tokenB = _getForCofi(_tokenB);
         return s.swapRouteV3[_tokenA][_tokenB];
     }
 
@@ -234,6 +251,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (uint256)
     {
+        _tokenA = _getForCofi(_tokenA);
+        _tokenB = _getForCofi(_tokenB);
         return s.swapInfo[_tokenA][_tokenB].slippage;
     }
 
@@ -243,6 +262,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (uint256)
     {
+        _tokenA = _getForCofi(_tokenA);
+        _tokenB = _getForCofi(_tokenB);
         return s.swapInfo[_tokenA][_tokenB].wait;
     }
 
@@ -265,6 +286,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (address)
     {
+        /// @dev Refer to the price feed for the underlying.
+        _token = _getForCofi(_token);
         return s.priceFeed[_token];
     }
 
@@ -276,6 +299,8 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (uint256 amountOutMin)
     {
+        _from = _getForCofi(_from);
+        _to = _getForCofi(_to);
         return LibSwap._getAmountOutMin(_amountIn, _from, _to);
     }
 
@@ -294,6 +319,17 @@ contract SwapManagerFacet is Modifiers {
     )   external view
         returns (uint256 fromTo)
     {
+        _from = _getForCofi(_from);
+        _to = _getForCofi(_to);
         return LibSwap._getConversion(_amount, _fee, _from, _to);
+    }
+
+    function _getForCofi(
+        address _token
+    )   internal view
+        returns (address underlying)
+    {
+        if (s.vault[_token] != address(0)) return IERC4626(s.vault[_token]).asset();
+        else return _token;
     }
 }

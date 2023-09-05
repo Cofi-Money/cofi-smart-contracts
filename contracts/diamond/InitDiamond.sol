@@ -132,7 +132,7 @@ contract InitDiamond {
         s.buffer[OP]    = 10*10**uint256(s.decimals[USDC]);
 
         // Set swap params (UniswapV3 is preferred option for all swaps currently).
-        s.defaultSlippage = 25; // 0.25%
+        s.defaultSlippage = 200; // 2%
         s.defaultWait = 12; // 12 seconds
 
         // ETH (=> wETH) => USDC and back.
@@ -149,6 +149,8 @@ contract InitDiamond {
         // SwapProtocol(2) = UniswapV3.
         s.swapProtocol[WETH][USDC] = SwapProtocol(2);
         s.swapProtocol[USDC][WETH] = SwapProtocol(2);
+        s.supportedSwaps[WETH].push(USDC);
+        s.supportedSwaps[USDC].push(WETH);
 
         // ETH (=> wETH => USDC) => DAI and back.
         s.swapRouteV3[WETH][DAI] = abi.encodePacked(
@@ -167,6 +169,8 @@ contract InitDiamond {
         );
         s.swapProtocol[WETH][DAI] = SwapProtocol(2);
         s.swapProtocol[DAI][WETH] = SwapProtocol(2);
+        s.supportedSwaps[WETH].push(DAI);
+        s.supportedSwaps[DAI].push(WETH);
 
         // DAI => USDC and back.
         s.swapRouteV3[DAI][USDC] = abi.encodePacked(
@@ -181,6 +185,8 @@ contract InitDiamond {
         );
         s.swapProtocol[DAI][USDC] = SwapProtocol(2);
         s.swapProtocol[USDC][DAI] = SwapProtocol(2);
+        s.supportedSwaps[DAI].push(USDC);
+        s.supportedSwaps[USDC].push(DAI);
 
         // ETH (=> wETH) => wBTC and back.
         s.swapRouteV3[WETH][WBTC] = abi.encodePacked(
@@ -195,20 +201,24 @@ contract InitDiamond {
         );
         s.swapProtocol[WETH][WBTC] = SwapProtocol(2);
         s.swapProtocol[WBTC][WETH] = SwapProtocol(2);
+        s.supportedSwaps[WETH].push(WBTC);
+        s.supportedSwaps[WBTC].push(WETH);
 
-        // ETH (=> wETH) => wBTC and back.
-        s.swapRouteV3[WETH][OP] = abi.encodePacked(
-            WETH,
-            uint24(500),
-            OP
-        );
-        s.swapRouteV3[OP][WETH] = abi.encodePacked(
-            OP,
-            uint24(500),
-            WETH
-        );
-        s.swapProtocol[WETH][OP] = SwapProtocol(2);
-        s.swapProtocol[OP][WETH] = SwapProtocol(2);
+        // // ETH (=> wETH) => wBTC and back.
+        // s.swapRouteV3[WETH][OP] = abi.encodePacked(
+        //     WETH,
+        //     uint24(500),
+        //     OP
+        // );
+        // s.swapRouteV3[OP][WETH] = abi.encodePacked(
+        //     OP,
+        //     uint24(500),
+        //     WETH
+        // );
+        // s.swapProtocol[WETH][OP] = SwapProtocol(2);
+        // s.swapProtocol[OP][WETH] = SwapProtocol(2);
+        // s.supportedSwaps[WETH].push(OP);
+        // s.supportedSwaps[OP].push(WETH);
 
         s.priceFeed[USDC]   = 0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3;
         s.priceFeed[DAI]    = 0x8dBa75e83DA73cc766A7e5a0ee71F656BAb470d6;

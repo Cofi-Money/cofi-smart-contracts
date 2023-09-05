@@ -30,13 +30,21 @@ contract SupplyFacet is Modifiers {
     //////////////////////////////////////////////////////////////*/
 
     /**
-     * @notice Enables user to enter app directly with native Ether.
+     * @notice  Simplified entry point for minting COFI tokens. Refer to 'getSupportedSwaps()'
+     *          in 'SwapManagerFacet.sol' to see list of supported assets for entering with.
+     * @dev Swap parameters must be set for token.
+     * @param _tokensIn     The amount of tokens to swap (pass instead as msg.value if native Ether).
+     * @param _token        The ERC20 token to swap (irrelevant if native Ether).
      * @param _cofi         The cofi token to receive.
+     * @param _depositFrom  The account to transfer tokens from (msg.sender if native Ether).
      * @param _recipient    The account receiving cofi tokens.
      * @param _referral     The referral account (address(0) if none given).
      */
-    function ETHToCofi(
+    function enterCofi(
+        uint256 _tokensIn,
+        address _token,
         address _cofi,
+        address _depositFrom,
         address _recipient,
         address _referral
     )   external payable
@@ -45,49 +53,7 @@ contract SupplyFacet is Modifiers {
     {
         address underlying = IERC4626(s.vault[_cofi]).asset();
 
-        // Swaps directly from msg.sender's account.
-        underlyingOut = LibSwap._swapETHForERC20(underlying);
-
-        require(
-            underlyingOut > s.minDeposit[_cofi],
-            'SupplyFacet: Insufficient deposit amount for cofi token'
-        );
-
-        uint256 fee;
-        // Underling tokens reside at this contract from swap operation.
-        (mintAfterFee, fee) = _underlyingToCofi(
-            underlyingOut,
-            _cofi,
-            _recipient,
-            _referral
-        );
-        console.log('mintAfterFee: %s', mintAfterFee);
-        console.log('underlyingOut: %s', underlyingOut);
-        emit LibToken.Deposit(underlying, underlyingOut, msg.sender, fee);
-    }
-
-    /**
-     * @notice Enables user to enter app directly with supported tokens.
-     * @dev Swap parameters must be set for token.
-     * @param _tokensIn     The amount of tokens to swap.
-     * @param _token        The ERC20 token to swap.
-     * @param _cofi         The cofi token to receive.
-     * @param _depositFrom  The account to transfer tokens from.
-     * @param _recipient    The account receiving cofi tokens.
-     * @param _referral     The referral account (address(0) if none given).
-     */
-    function tokensToCofi(
-        uint256 _tokensIn,
-        address _token,
-        address _cofi,
-        address _depositFrom,
-        address _recipient,
-        address _referral
-    )   external
-        nonReentrant isWhitelisted mintEnabled(_cofi)
-        returns (uint256 mintAfterFee, uint256 underlyingOut)
-    {
-        address underlying = IERC4626(s.vault[_cofi]).asset();
+        if (msg.value > 0) return _ETHToCofi(_cofi, underlying, _recipient, _referral);
 
         // Transfer tokens to this contract first for swap op.
         LibToken._transferFrom(
@@ -118,54 +84,52 @@ contract SupplyFacet is Modifiers {
         (mintAfterFee, fee) = _underlyingToCofi(
             underlyingOut,
             _cofi,
+            underlying,
             _recipient,
             _referral
         );
         emit LibToken.Deposit(underlying, underlyingOut, _depositFrom, fee);
     }
 
-    /**
-     * @notice Enables user to exit app and receive native Ether.
-     * @param _cofiIn       The amount of cofi tokens to redeem.
-     * @param _cofi         The cofi token to redeem.
-     * @param _depositFrom  The account to transfer cofi tokens from.
-     * @param _recipient    The account receiving native Ether.
-     */
-    function cofiToETH(
-        uint256 _cofiIn,
+    function _ETHToCofi(
         address _cofi,
-        address _depositFrom,
-        address _recipient
-    )   external
-        nonReentrant isWhitelisted redeemEnabled(_cofi) minWithdraw(_cofiIn, _cofi)
-        returns (uint256 burnAfterFee, uint256 ETHOut)
+        address _underlying,
+        address _recipient,
+        address _referral
+    )   internal
+        returns (uint256 mintAfterFee, uint256 underlyingOut)
     {
-        burnAfterFee = _cofiToUnderlying(
-            _cofiIn,
+        // Swaps directly from msg.sender's account.
+        underlyingOut = LibSwap._swapETHForERC20(_underlying);
+
+        require(
+            underlyingOut > s.minDeposit[_cofi],
+            'SupplyFacet: Insufficient deposit amount for cofi token'
+        );
+
+        uint256 fee;
+        // Underling tokens reside at this contract from swap operation.
+        (mintAfterFee, fee) = _underlyingToCofi(
+            underlyingOut,
             _cofi,
-            _depositFrom,
-            address(this)
+            _underlying,
+            _recipient,
+            _referral
         );
-        console.log('amountIn: %s', LibToken._toUnderlyingDecimals(_cofi, burnAfterFee));
-        console.log('bal: %s', IERC20(IERC4626(s.vault[_cofi]).asset()).balanceOf(address(this)));
-        ETHOut = LibSwap._swapERC20ForETH(
-            LibToken._toUnderlyingDecimals(_cofi, burnAfterFee),
-            IERC4626(s.vault[_cofi]).asset(),
-            _recipient
-        );
+
+        emit LibToken.Deposit(_underlying, underlyingOut, msg.sender, fee);
     }
-    // 1847473525
-    // 1947473524
 
     /**
-     * @notice Enables user to exit app and receive supported tokens.
+     * @notice  Simplified exit point for minting COFI tokens. Refer to 'getSupportedSwaps()'
+     *          in 'SwapManagerFacet.sol' to see list of supported assets for exiting to.
      * @param _cofiIn       The amount of cofi tokens to redeem.
-     * @param _token        The ERC20 token to receive.
+     * @param _token        The ERC20 token to receive (address(0) if requesting native Ether).
      * @param _cofi         The cofi token to redeem.
      * @param _depositFrom  The account to transfer cofi tokens from.
      * @param _recipient    The account receiving tokens.
      */
-    function cofiToTokens(
+    function exitCofi(
         uint256 _cofiIn,
         address _token,
         address _cofi,
@@ -175,6 +139,9 @@ contract SupplyFacet is Modifiers {
         nonReentrant isWhitelisted redeemEnabled(_cofi) minWithdraw(_cofiIn, _cofi)
         returns (uint256 burnAfterFee, uint256 tokensOut)
     {
+        if (_token == address(0))
+            return _cofiToETH(_cofiIn, _cofi, _depositFrom, _recipient);
+
         address underlying = IERC4626(s.vault[_cofi]).asset();
 
         if (_token == underlying) {
@@ -205,6 +172,28 @@ contract SupplyFacet is Modifiers {
         );
     }
 
+    function _cofiToETH(
+        uint256 _cofiIn,
+        address _cofi,
+        address _depositFrom,
+        address _recipient
+    )   internal
+        returns (uint256 burnAfterFee, uint256 ETHOut)
+    {
+        burnAfterFee = _cofiToUnderlying(
+            _cofiIn,
+            _cofi,
+            _depositFrom,
+            address(this)
+        );
+
+        ETHOut = LibSwap._swapERC20ForETH(
+            LibToken._toUnderlyingDecimals(_cofi, burnAfterFee),
+            IERC4626(s.vault[_cofi]).asset(),
+            _recipient
+        );
+    }
+
     /*//////////////////////////////////////////////////////////////
                     Direct Deposit & Withdraw Functions
     //////////////////////////////////////////////////////////////*/
@@ -223,7 +212,7 @@ contract SupplyFacet is Modifiers {
         address _depositFrom,
         address _recipient,
         address _referral
-    )   public
+    )   external
         nonReentrant isWhitelisted mintEnabled(_cofi) minDeposit(_underlyingIn, _cofi)
         returns (uint256 mintAfterFee)
     {
@@ -241,6 +230,7 @@ contract SupplyFacet is Modifiers {
         (mintAfterFee, fee) = _underlyingToCofi(
             _underlyingIn,
             _cofi,
+            underlying,
             _recipient,
             _referral
         );
@@ -256,6 +246,7 @@ contract SupplyFacet is Modifiers {
     function _underlyingToCofi(
         uint256 _underlyingIn,
         address _cofi,
+        address _underlying,
         address _recipient,
         address _referral
     )   internal
@@ -263,15 +254,15 @@ contract SupplyFacet is Modifiers {
     {
         // Preemptively rebases if enabled.
         if (s.rebasePublic[_cofi] == 1) LibToken._poke(_cofi);
-        console.log('r1');
+
         SafeERC20.safeApprove(
-            IERC20(IERC4626(s.vault[_cofi]).asset()),
+            IERC20(_underlying),
             s.vault[_cofi],
             _underlyingIn
         );
-        console.log('r2');
+
         uint256 assets = LibToken._toCofiDecimals(
-            s.vault[_cofi],
+            _underlying,
             LibVault._getAssets(
                 LibVault._wrap(
                     _underlyingIn,
@@ -280,10 +271,14 @@ contract SupplyFacet is Modifiers {
                 s.vault[_cofi]
             )
         );
-        console.log('r3');
+
         require(
-            assets >= _underlyingIn.percentMul(1e4 - s.defaultSlippage),
+            assets > _underlyingIn.percentMul(1e4 - s.defaultSlippage),
             'SupplyFacet: Slippage exceeded'
+        );
+        require(
+            assets < _underlyingIn.percentMul(1e4 + s.upperLimit),
+            'SupplyFacet: Assets value exceeds upper limit check'
         );
 
         fee = LibToken._getMintFee(_cofi, assets);
@@ -313,7 +308,7 @@ contract SupplyFacet is Modifiers {
         address _cofi,
         address _depositFrom,
         address _recipient
-    )   public
+    )   external
         nonReentrant isWhitelisted redeemEnabled(_cofi) minWithdraw(_cofiIn, _cofi)
         returns (uint256 burnAfterFee)
     {
@@ -347,12 +342,16 @@ contract SupplyFacet is Modifiers {
             s.vault[_cofi],
             _recipient
         );
-        console.log('assets: %s', assets);
-        console.log('x: %s', LibToken._toUnderlyingDecimals(_cofi, burnAfterFee).percentMul(1e4 - s.defaultSlippage));
 
         require(
-            assets >= LibToken._toUnderlyingDecimals(_cofi, burnAfterFee).percentMul(1e4 - s.defaultSlippage),
+            assets > LibToken._toUnderlyingDecimals(_cofi, burnAfterFee)
+                .percentMul(1e4 - s.defaultSlippage),
             'SupplyFacet: Slippage exceeded'
+        );
+        require(
+            assets < LibToken._toUnderlyingDecimals(_cofi, burnAfterFee)
+                .percentMul(1e4 + s.upperLimit),
+            'SupplyFacet: Assets value exceeds upper limit check'
         );
 
         emit LibToken.Withdraw(IERC4626(s.vault[_cofi]).asset(), _cofiIn, _depositFrom, fee);
@@ -366,7 +365,7 @@ contract SupplyFacet is Modifiers {
         uint256 _tokensIn,
         address _token,
         address _cofi
-    )   public view
+    )   external view
         returns (uint256 cofiOut)
     {
         return LibSwap._getConversion(_tokensIn, s.mintFee[_cofi], _token, _cofi);
@@ -377,7 +376,7 @@ contract SupplyFacet is Modifiers {
         uint256 _cofiIn,
         address _cofi,
         address _token
-    )   public view
+    )   external view
         returns (uint256 cofiOut)
     {
         return LibSwap._getConversion(_cofiIn, s.redeemFee[_cofi], _cofi, _token);

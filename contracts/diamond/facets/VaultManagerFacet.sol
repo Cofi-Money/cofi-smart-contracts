@@ -10,6 +10,7 @@ import { StableMath } from '../libs/external/StableMath.sol';
 import { PercentageMath } from '../libs/external/PercentageMath.sol';
 import { IERC4626 } from '../interfaces/IERC4626.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
+import 'hardhat/console.sol';
 
 /**
 
@@ -54,8 +55,8 @@ contract VaultManagerFacet is Modifiers {
      * @notice Migrates assets to '_newVault'.
      * @dev Ensure that a buffer of the relevant underlying token resides at this contract
      *      before executing to account for slippage.
-     * @param _cofi     The cofi token to migrate underlying tokens for.
-     * @param _newVault The new ERC4626 vault.
+     * @param _cofi         The cofi token to migrate underlying tokens for.
+     * @param _newVault     The new ERC4626 vault.
      */
     function migrate(
         address _cofi,
@@ -65,7 +66,7 @@ contract VaultManagerFacet is Modifiers {
     {
         require(
             s.isUpkeep[msg.sender] == 1 || s.isAdmin[msg.sender] == 1,
-            'YieldFacet: Caller not Upkeep or Admin'
+            'VaultManagerFacet: Caller not Upkeep or Admin'
         );
         require(
             s.migrationEnabled[s.vault[_cofi]][_newVault] == 1,
@@ -90,10 +91,6 @@ contract VaultManagerFacet is Modifiers {
          */
         if (underlying != IERC4626(_newVault).asset()) {
             address newUnderlying = IERC4626(_newVault).asset();
-            require(
-                s.decimals[newUnderlying] != 0,
-                'VaultManagerFacet: Decimals for new underlying not set'
-            );
             require(
                 s.swapProtocol[underlying][newUnderlying] != SwapProtocol(0),
                 'VaultManagerFacet: Swap route not set for migration'
@@ -120,10 +117,12 @@ contract VaultManagerFacet is Modifiers {
             _newVault
         );
 
+        uint256 newAssets = LibVault._totalValue(_newVault);
+        /// @dev No need to convert decimals as both values denominated in same asset.
+        require(assets <= newAssets, 'VaultManagerFacet: Vault migration slippage exceeded');
         require(
-            /// @dev No need to convert decimals as both values denominated in same asset.
-            assets <= LibVault._totalValue(_newVault),
-            'YieldFacet: Vault migration slippage exceeded'
+            newAssets < newAssets.percentMul(1e4 + s.upperLimit),
+            'VaultManagerFacet: New assets value exceeds upper limit check'
         );
         emit LibVault.VaultMigration(
             _cofi,
@@ -183,6 +182,17 @@ contract VaultManagerFacet is Modifiers {
     {
         require(s.vault[_cofi] == address(0), 'VaultManagerFacet: Vault already set');
         s.vault[_cofi] = _vault;
+        return true;
+    }
+
+    function setUpperLimit(
+        uint256 _upperLimit
+    )   external
+        onlyAdmin
+        returns (bool)
+    {
+        require(_upperLimit > 0, 'VaultManagerFacet: Cannot set upper limit to 0');
+        s.upperLimit = _upperLimit;
         return true;
     }
 
@@ -252,6 +262,13 @@ contract VaultManagerFacet is Modifiers {
         returns (address vault)
     {
         return s.vault[_cofi];
+    }
+
+    function getUpperLimit(
+    )   external view
+        returns (uint256)
+    {
+        return s.upperLimit;
     }
 
     /**

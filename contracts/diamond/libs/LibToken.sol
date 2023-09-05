@@ -216,7 +216,10 @@ library LibToken {
         // Preemptively harvest if necessary for vault.
         if (s.harvestable[s.vault[_cofi]] == 1) LibVault._harvest(s.vault[_cofi]);
         
-        assets = _toCofiDecimals(s.vault[_cofi], LibVault._totalValue(s.vault[_cofi]));
+        assets = _toCofiDecimals(
+            IERC4626(s.vault[_cofi]).asset(),
+            LibVault._totalValue(s.vault[_cofi])
+        );
 
         if (assets > currentSupply) {
 
@@ -348,8 +351,8 @@ library LibToken {
         returns (uint256)
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
-        console.log('toCofiDecimals');
-        console.log('%s', _amount.scaleBy(18, uint256(s.decimals[_underlying])));
+
+        require(s.decimals[_underlying] != 0, 'LibVault: Decimals not set for underlying');
 
         return _amount.scaleBy(18, uint256(s.decimals[_underlying]));
     }
@@ -366,6 +369,11 @@ library LibToken {
         returns (uint256)
     {
         AppStorage storage s = LibAppStorage.diamondStorage();
+
+        require(
+            s.decimals[IERC4626(s.vault[_cofi]).asset()] != 0,
+            'LibVault: Decimals not set for underlying'
+        );
 
         return _amount.scaleBy(uint256(s.decimals[s.vault[_cofi]]), 18);
     }

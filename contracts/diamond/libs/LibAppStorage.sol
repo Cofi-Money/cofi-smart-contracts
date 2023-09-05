@@ -88,6 +88,9 @@ struct AppStorage {
     // Indicated if rebase operation should harvest vault beforehand (e.g., swap reward for want).
     mapping(address => uint8)   harvestable;
 
+    // Added security check to 
+    uint256 upperLimit;
+
     /*//////////////////////////////////////////////////////////////
                             Rewards Params
     //////////////////////////////////////////////////////////////*/

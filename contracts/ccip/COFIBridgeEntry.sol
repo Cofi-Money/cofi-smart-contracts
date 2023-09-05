@@ -27,21 +27,28 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
     event CallSuccessful();
 
     error InsufficientFee();
+    error NotAuthorizedTransmitter();
 
+    // Added bridge metadata
     bool public mandateFee;
+    uint256 public gasLimit;
 
+    // Testing
     address public testCofi;
+    uint256 public pong;
 
+    // COFI vars
     // E.g., coUSD => wcoUSD.
     mapping(address => IERC4626) public vault;
     // srcAsset => Chain Selector => destShare.
     mapping(address => mapping(uint64 => address)) public destShare;
     // destShare => srcAsset.
     mapping(address => address) public srcAsset;
-
     // Contract responsible for minting/burning shares on destination chain.
     mapping(uint64 => address) public receiver;
 
+    // Access
+    mapping(address => bool) public authorizedTransmitter;
     mapping(address => bool) public authorized;
 
     constructor(
@@ -59,8 +66,11 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
         vault[_cofi] = IERC4626(_vault);
         destShare[_cofi][_destChainSelector] = _destShare;
         receiver[_destChainSelector] = _receiver;
+        authorizedTransmitter[_receiver] = true;
         IERC20(_cofi).approve(_vault, type(uint256).max);
         testCofi = _cofi;
+        mandateFee = true;
+        gasLimit = 200_000;
         authorized[msg.sender] = true;
     }
 
@@ -71,11 +81,22 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
 
     receive() external payable {}
 
+    /*//////////////////////////////////////////////////////////////
+                            Admin Setters
+    //////////////////////////////////////////////////////////////*/
+
     function setAuthorized(
         address _account,
         bool _authorized
     ) external onlyAuthorized {
         authorized[_account] = _authorized;
+    }
+
+    function setAuthorizedTransmitter(
+        address _account,
+        bool _authorized
+    ) external onlyAuthorized {
+        authorizedTransmitter[_account] = _authorized;
     }
 
     function setVault(
@@ -96,9 +117,11 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
 
     function setReceiver(
         uint64 _destChainSelector,
-        address _receiver
+        address _receiver,
+        bool _authorizedTransmitter
     ) external onlyAuthorized {
         receiver[_destChainSelector] = _receiver;
+        authorizedTransmitter[_receiver] = _authorizedTransmitter;
     }
 
     function setMandateFee(
@@ -107,8 +130,14 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
         mandateFee = _enabled;
     }
 
+    function setGasLimit(
+        uint256 _gasLimit
+    ) external {
+        gasLimit = _gasLimit;
+    }
+
     /*//////////////////////////////////////////////////////////////
-                            TRANSMITTER
+                            Transmitter
     //////////////////////////////////////////////////////////////*/
 
     function enter(
@@ -189,7 +218,7 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
                 _amount
             ),
             tokenAmounts: new Client.EVMTokenAmount[](0),
-            extraArgs: "",
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
             feeToken: address(0)
         });
 
@@ -200,7 +229,7 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
     }
 
     /*//////////////////////////////////////////////////////////////
-                                RECEIVER
+                                Receiver
     //////////////////////////////////////////////////////////////*/
 
     function redeem(
@@ -217,13 +246,87 @@ contract COFIBridgeEntry is Withdraw, CCIPReceiver {
     function _ccipReceive(
         Client.Any2EVMMessage memory message
     ) internal override {
+        address sender = abi.decode(message.sender, (address));
+        if (!authorizedTransmitter[sender]) revert NotAuthorizedTransmitter();
         (bool success, ) = address(this).call(message.data);
         require(success);
         emit CallSuccessful();
     }
 
     /*//////////////////////////////////////////////////////////////
-                                TESTING
+                    Testing - Transmitter & Receiver
+    //////////////////////////////////////////////////////////////*/
+
+    function doPing(
+        uint256 _ping,
+        address _receiver,
+        uint64 _chainSelector
+    ) external payable {
+        if (mandateFee) {
+            if (msg.value < getFeeETHPing(_ping, _receiver, _chainSelector)) {
+                revert InsufficientFee();
+            }
+        }
+
+        _doPing(_ping, _receiver, _chainSelector);
+    }
+
+    function _doPing(
+        uint256 _ping,
+        address _receiver,
+        uint64 _chainSelector
+    ) internal {
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(_receiver),
+            data: abi.encodeWithSignature("doPing(uint256)", _ping),
+            tokenAmounts: new Client.EVMTokenAmount[](0),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
+            feeToken: address(0)
+        });
+
+        uint256 fee = IRouterClient(i_router).getFee(
+            _chainSelector,
+            message
+        );
+
+        bytes32 messageId = IRouterClient(i_router).ccipSend{value: fee}(
+            _chainSelector,
+            message
+        );
+
+        emit MessageSent(messageId);
+    }
+
+    function getFeeETHPing(
+        uint256 _pong,
+        address _receiver,
+        uint64 _chainSelector
+    ) public view returns (uint256 fee) {
+        Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
+            receiver: abi.encode(_receiver),
+            data: abi.encodeWithSignature(
+                "doPing(uint256)",
+                _pong
+            ),
+            tokenAmounts: new Client.EVMTokenAmount[](0),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
+            feeToken: address(0)
+        });
+
+        return IRouterClient(i_router).getFee(
+            _chainSelector,
+            message
+        );
+    }
+
+    function doPong(
+        uint256 _pong
+    ) public {
+        pong = _pong;
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                            Testing - Local
     //////////////////////////////////////////////////////////////*/
 
     function getCofi(
