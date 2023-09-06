@@ -11,7 +11,6 @@ import { FixedPointMath } from './external/FixedPointMath.sol';
 import { StableMath } from './external/StableMath.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol';
-import 'hardhat/console.sol';
 
 library LibSwap {
     using PercentageMath for uint256;
@@ -97,12 +96,10 @@ library LibSwap {
             );
             amountOut = amounts[amounts.length - 1];
         } else if (s.swapProtocol[address(WETH)][_to] == SwapProtocol(2)) {
-            console.log('Entering UniswapV3 route');
             amountOut = LibUniswapV3._exactInputETH(
                 _getAmountOutMin(msg.value, address(WETH), _to),
                 _to
             );
-            console.log('amountOut: %s', amountOut);
         }
         emit Swap(address(WETH), _to, msg.value, amountOut, address(this));
     }
@@ -181,7 +178,6 @@ library LibSwap {
                 s.defaultSlippage :
                 s.swapInfo[_from][_to].slippage)
             );
-        console.log('amountOutMin: %s', amountOutMin); // P
     }
 
     /// @dev Similar to '_getAmountOutMin()' however takes into account a custom deducation amount 'fee' in basis points.
@@ -216,7 +212,6 @@ library LibSwap {
     {
         // Scales to 18 but need to return answer in 8 decimals.
         fromTo = _getLatestPrice(_from).divPrecisely(_getLatestPrice(_to)).scaleBy(8, 18);
-        console.log('fromTo: %s', fromTo);
     }
 
     /// @notice Retrieves latest price of '_asset' from Chainlink price oracle.
@@ -240,7 +235,6 @@ library LibSwap {
         require(_timestamp != 0,'LibSwap: Round not complete');
         require(_answer > 0,'LibSwap: Chainlink answer reporting 0');
 
-        console.log('answer: %s', _answer.abs()); // P
         return _answer.abs();
     }
 }

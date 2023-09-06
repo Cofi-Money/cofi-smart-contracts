@@ -8,7 +8,6 @@ import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
 import '@openzeppelin/contracts/access/Ownable2Step.sol';
 import { FixedPointMathLib } from './libs/FixedPointMathLib.sol';
 import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
-import 'hardhat/console.sol';
 
 /**
  * @author RobAnon

@@ -48,6 +48,13 @@ async function main() {
     await coBTC.waitForDeployment()
     const coBTCAddr = await coBTC.getAddress()
     console.log("coBTC deployed: ", coBTCAddr)
+    const coOP = await COFITOKEN.deploy(
+        "COFI Optimism",
+        "coOP"
+    )
+    await coOP.waitForDeployment()
+    const coOPAddr = await coOP.getAddress()
+    console.log("coBTC deployed: ", coOPAddr)
 
     /* Depoly wrapper(s) - only one to begin with */
     const WSOBTC = await ethers.getContractFactory("CompoundV2ERC4626Reinvest")

@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import { AppStorage, LibAppStorage } from './LibAppStorage.sol';
 import { IRouter } from '../interfaces/IRouter.sol';
 import '@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol';
-import 'hardhat/console.sol';
 
 library LibVelodromeV2 {
 

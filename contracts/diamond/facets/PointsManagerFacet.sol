@@ -57,7 +57,7 @@ contract PointsManagerFacet is Modifiers {
          *      3.  Start with empty array for next points epoch.
          */
         uint256 yield;
-        for(uint i = 0; i < _accounts.length; ++i) {
+        for(uint i = 0; i < _accounts.length; i++) {
         yield = LibToken._getYieldEarned(_accounts[i], _cofi);
             // If the account has earned yield since the last yield capture event.
             if (s.YPC[_accounts[i]][_cofi].yield < yield) {
@@ -82,7 +82,7 @@ contract PointsManagerFacet is Modifiers {
         onlyAdmin
         returns (bool)
     {
-        for(uint i = 0; i < _accounts.length; ++i) {
+        for(uint i = 0; i < _accounts.length; i++) {
             LibReward._reward(_accounts[i], _amount);
         }
         return true;
@@ -181,7 +181,7 @@ contract PointsManagerFacet is Modifiers {
         uint256 pointsCaptured;
         uint256 pointsPending;
 
-        for(uint i = 0; i < _cofi.length; ++i) {
+        for(uint i = 0; i < _cofi.length; i++) {
             yield           += LibToken._getYieldEarned(_account, _cofi[i]);
             pointsCaptured  += s.YPC[_account][_cofi[i]].points;
             pointsPending   += (yield - s.YPC[_account][_cofi[i]].yield)

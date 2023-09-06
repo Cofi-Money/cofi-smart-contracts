@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {FixedPointMathLib} from "solmate/src/utils/FixedPointMathLib.sol";
 
 import {ICERC20} from "../interfaces/compound/ICERC20.sol";
-import "hardhat/console.sol";
 
 /// @notice Get up to date cToken data without mutating state.
 /// @notice Forked from Transmissions11 (https://github.com/transmissions11/libcompound) to upgrade version
