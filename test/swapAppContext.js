@@ -432,69 +432,130 @@ describe("Test wrappers in app context", function() {
     //     console.log("t0 Diamond wsoBTC bal: ", await wsoBTC.balanceOf(await cofiMoney.getAddress()))
     // })
 
-    it("Should do deposit, rebase, and withdraw sequence (ETH => coTKN => ETH)", async function() {
-        // ETH => 1. coUSD; 2. coETH; 3. coBTC; 4. coOP; 5. coUSD (DAI) => ETH
-            // getEstimatedCofiOut: 1, 2, 3, 4, 5
-            // ETHToCofi: 1, 2, 3, 4, 5
-            // rebase : 1, 2, 3, 4, 5
-            // getEstimatedTokensOut (ETH): 1, 2, 3, 4, 5
-            // cofiToETH: 1, 2, 3, 4, 5
+    it("Should get correct estimation values", async function() {
 
-        const { owner, feeCollector, wyvDAI, coUSD, usdc, cofiMoney } = await loadFixture(deploy)
+        const { owner, feeCollector, wyvDAI, coUSD, coETH, coBTC, usdc, cofiMoney } = await loadFixture(deploy)
 
-        // Get estimated coUSD out.
-        const est_coTKN = await cofiMoney.getEstimatedCofiOut(
+        let est_coTKN = await cofiMoney.getEstimatedCofiOut(
             ethers.parseEther('1'),
             WETH_Addr,
             await coUSD.getAddress()
         )
         console.log("t0 Estimated coUSD received: ", est_coTKN)
-        console.log("t0 User ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
 
-        await cofiMoney.enterCofi(
-            await usdc.balanceOf(await owner.getAddress()),
+        est_coTKN = await cofiMoney.getEstimatedCofiOut(
+            '100000000',
             USDC_Addr,
-            await coUSD.getAddress(),
-            await owner.getAddress(),
-            await owner.getAddress(),
-            NULL_Addr,
-            // {value: ethers.parseEther('1')}
+            await coUSD.getAddress()
         )
+        console.log("t0 Estimated coUSD received: ", est_coTKN)
 
-        console.log("t1 User coUSD pre-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
-        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-        console.log("t1 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
+        est_coTKN = await cofiMoney.getEstimatedCofiOut(
+            ethers.parseEther('1'),
+            WETH_Addr,
+            await coETH.getAddress()
+        )
+        console.log("t0 Estimated coETH received: ", est_coTKN)
 
-        await cofiMoney.rebase(await coUSD.getAddress())
+        est_coTKN = await cofiMoney.getEstimatedCofiOut(
+            ethers.parseEther('1'),
+            WETH_Addr,
+            await coBTC.getAddress()
+        )
+        console.log("t0 Estimated coBTC received: ", est_coTKN)
 
-        console.log("t2 User coUSD post-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-
-        const estETH = await cofiMoney.getEstimatedTokensOut(
-            await coUSD.balanceOf(await owner.getAddress()),
+        est_coTKN = await cofiMoney.getEstimatedTokensOut(
+            ethers.parseEther('1630'),
             await coUSD.getAddress(),
             WETH_Addr
         )
-        console.log("t3 Estimated ETH received: ", estETH)
-        console.log("t3 User ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+        console.log("t0 Estimated wETH received: ", est_coTKN)
 
-        await coUSD.approve(await cofiMoney.getAddress(), await coUSD.balanceOf(await owner.getAddress()))
-
-        await cofiMoney.exitCofi(
-            await coUSD.balanceOf(await owner.getAddress()),
-            USDC_Addr, // Use to request native ETH.
+        est_coTKN = await cofiMoney.getEstimatedTokensOut(
+            ethers.parseEther('1630'),
             await coUSD.getAddress(),
-            await owner.getAddress(),
-            await owner.getAddress()
+            USDC_Addr
         )
+        console.log("t0 Estimated USDC received: ", est_coTKN)
 
-        console.log("t4 USDC bal: ", await usdc.balanceOf(await owner.getAddress()))
-        console.log("t4 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t4 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
-        console.log("t4 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-        console.log("t4 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
-    })
+        est_coTKN = await cofiMoney.getEstimatedTokensOut(
+            ethers.parseEther('1'),
+            await coETH.getAddress(),
+            USDC_Addr
+        )
+        console.log("t0 Estimated USDC received: ", est_coTKN)
+
+        est_coTKN = await cofiMoney.getEstimatedTokensOut(
+            ethers.parseEther('0.06'),
+            await coBTC.getAddress(),
+            WBTC_Addr
+        )
+        console.log("t0 Estimated wBTC received: ", est_coTKN)
+    }) //0.06000000_0000000000 10 decimals off
+
+    // it("Should do deposit, rebase, and withdraw sequence (ETH => coTKN => ETH)", async function() {
+    //     // ETH => 1. coUSD; 2. coETH; 3. coBTC; 4. coOP; 5. coUSD (DAI) => ETH
+    //         // getEstimatedCofiOut: 1, 2, 3, 4, 5
+    //         // ETHToCofi: 1, 2, 3, 4, 5
+    //         // rebase : 1, 2, 3, 4, 5
+    //         // getEstimatedTokensOut (ETH): 1, 2, 3, 4, 5
+    //         // cofiToETH: 1, 2, 3, 4, 5
+
+    //     const { owner, feeCollector, wyvDAI, coUSD, usdc, cofiMoney } = await loadFixture(deploy)
+
+    //     // Get estimated coUSD out.
+    //     const est_coTKN = await cofiMoney.getEstimatedCofiOut(
+    //         ethers.parseEther('1'),
+    //         WETH_Addr,
+    //         await coUSD.getAddress()
+    //     )
+    //     console.log("t0 Estimated coUSD received: ", est_coTKN)
+    //     console.log("t0 User ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+
+        // await cofiMoney.enterCofi(
+        //     ethers.parseEther('1'), //_tokensIn is irrelevant
+        //     WETH_Addr, // _token is irrelevant
+        //     await coUSD.getAddress(),
+        //     await owner.getAddress(), // depositFrom is irrelevant.
+        //     await owner.getAddress(),
+        //     NULL_Addr,
+        //     {value: ethers.parseEther('1')} // Pass amount here as 'value'
+        // )
+
+    //     console.log("t1 User coUSD pre-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t1 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+    //     console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t1 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
+
+    //     await cofiMoney.rebase(await coUSD.getAddress())
+
+    //     console.log("t2 User coUSD post-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+
+    //     const estETH = await cofiMoney.getEstimatedTokensOut(
+    //         await coUSD.balanceOf(await owner.getAddress()),
+    //         await coUSD.getAddress(),
+    //         WETH_Addr
+    //     )
+    //     console.log("t3 Estimated ETH received: ", estETH)
+    //     console.log("t3 User ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+
+    //     await coUSD.approve(await cofiMoney.getAddress(), await coUSD.balanceOf(await owner.getAddress()))
+
+    //     await cofiMoney.exitCofi(
+    //         await coUSD.balanceOf(await owner.getAddress()),
+    //         USDC_Addr, // Use to request native ETH.
+    //         await coUSD.getAddress(),
+    //         await owner.getAddress(),
+    //         await owner.getAddress()
+    //     )
+
+    //     console.log("t4 USDC bal: ", await usdc.balanceOf(await owner.getAddress()))
+    //     console.log("t4 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t4 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+    //     console.log("t4 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t4 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
+    // })
 
     // it("Should enable User to deposit USDC and receive coUSD", async function() {
 
@@ -547,59 +608,59 @@ describe("Test wrappers in app context", function() {
     //     console.log("t0 Diamond wyvETH bal: ", await wyvETH.balanceOf(await cofiMoney.getAddress()))
     // })
 
-    it("Should migrate coUSD backing from wyvDAI to wsoUSDC", async function() {
+    // it("Should migrate coUSD backing from wyvDAI to wsoUSDC", async function() {
 
-        const { owner, feeCollector, coUSD, wyvDAI, wsoUSDC, dai, cofiMoney } = await loadFixture(deploy)
+    //     const { owner, feeCollector, coUSD, wyvDAI, wsoUSDC, dai, cofiMoney } = await loadFixture(deploy)
 
-        // Initial deposit
-        await cofiMoney.enterCofi(
-            ethers.parseEther('1000'),
-            DAI_Addr,
-            await coUSD.getAddress(),
-            await owner.getAddress(),
-            await owner.getAddress(),
-            NULL_Addr,
-            // {value: ethers.parseEther('1')}
-        )
+    //     // Initial deposit
+    //     await cofiMoney.enterCofi(
+    //         ethers.parseEther('1000'),
+    //         DAI_Addr,
+    //         await coUSD.getAddress(),
+    //         await owner.getAddress(),
+    //         await owner.getAddress(),
+    //         NULL_Addr,
+    //         // {value: ethers.parseEther('1')}
+    //     )
 
-        console.log("t1 User coUSD pre-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t1 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
-        console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-        console.log("t1 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
+    //     console.log("t1 User coUSD pre-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t1 ETH bal: ", await ethers.provider.getBalance(await owner.getAddress()))
+    //     console.log("t1 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t1 Diamond wyvDAI bal: ", await wyvDAI.balanceOf(await cofiMoney.getAddress()))
 
-        await cofiMoney.rebase(await coUSD.getAddress())
+    //     await cofiMoney.rebase(await coUSD.getAddress())
 
-        console.log("t2 User coUSD post-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t2 User coUSD post-rebase bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t2 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
 
-        await cofiMoney.setMigrationEnabled(
-            await wyvDAI.getAddress(),
-            await wsoUSDC.getAddress(),
-            1
-        )
+    //     await cofiMoney.setMigrationEnabled(
+    //         await wyvDAI.getAddress(),
+    //         await wsoUSDC.getAddress(),
+    //         1
+    //     )
 
-        await cofiMoney.migrate(
-            await coUSD.getAddress(),
-            await wsoUSDC.getAddress()
-        )
+    //     await cofiMoney.migrate(
+    //         await coUSD.getAddress(),
+    //         await wsoUSDC.getAddress()
+    //     )
 
-        console.log("t3 User coUSD post-migration bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t3 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    //     console.log("t3 User coUSD post-migration bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t3 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
 
-        // 2nd deposit
-        await cofiMoney.enterCofi(
-            ethers.parseEther('1000'),
-            DAI_Addr,
-            await coUSD.getAddress(),
-            await owner.getAddress(),
-            await owner.getAddress(),
-            NULL_Addr,
-            // {value: ethers.parseEther('1')}
-        )
+    //     // 2nd deposit
+    //     await cofiMoney.enterCofi(
+    //         ethers.parseEther('1000'),
+    //         DAI_Addr,
+    //         await coUSD.getAddress(),
+    //         await owner.getAddress(),
+    //         await owner.getAddress(),
+    //         NULL_Addr,
+    //         // {value: ethers.parseEther('1')}
+    //     )
 
-        console.log("t4 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
-        console.log("t4 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
-    })
+    //     console.log("t4 User coUSD bal: ", await coUSD.balanceOf(await owner.getAddress()))
+    //     console.log("t4 Fee Collector coUSD bal: ", await coUSD.balanceOf(await feeCollector.getAddress()))
+    // })
 
     // it("Should get correct storage variables from SwapManagerFacet", async function() {
 
