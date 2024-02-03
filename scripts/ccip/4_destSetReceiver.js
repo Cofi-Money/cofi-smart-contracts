@@ -5,6 +5,7 @@ const { ethers } = require('hardhat')
 const SEPOLIA_CHAIN_SELECTOR = "16015286601757825753"
 const OPTIMISM_GOERLI_CHAIN_SELECTOR = "2664363617261496610"
 const MUMBAI_CHAIN_SELECTOR = "12532609583862916517"
+const OP_CHAIN_SELECTOR = "3734403246176062136"
 
 async function main() {
 
@@ -14,8 +15,8 @@ async function main() {
     )
 
     await bridgeExit.setReceiver(
-        MUMBAI_CHAIN_SELECTOR,
-        "0x82E55a92611E1D8319bBB63e154AA0833755c819", // entry bridge
+        OP_CHAIN_SELECTOR,
+        "0x913bcCb4e85C16F08731de7c2510d512AaFfF8F4", // entry bridge
         true
     )
     console.log("Receiver set")

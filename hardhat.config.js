@@ -3,7 +3,8 @@ require("hardhat-diamond-abi");
 require("dotenv").config();
 
 const { INFURA_API_KEY, INFURA_API_KEY_2, ALCHEMY_API_KEY, ETH_SCAN_API_KEY, POLY_SCAN_API_KEY, 
-  PRIV_KEY, PRIV_KEY_2, PRIV_KEY_3, OPT_SCAN_API_KEY, ANKR_API_KEY, ARB_SCAN_API_KEY, AVAX_SCAN_API_KEY } = process.env;
+  PRIV_KEY, PRIV_KEY_2, PRIV_KEY_3, OPT_SCAN_API_KEY, ANKR_API_KEY, ARB_SCAN_API_KEY, AVAX_SCAN_API_KEY,
+  ALCHEMY_API_KEY_3 } = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -32,8 +33,16 @@ module.exports = {
       accounts: [`${PRIV_KEY}`]
     },
     optimisticEthereum: {
-      // url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY}`,
-      url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY_2}`,
+      // url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      accounts: [`${PRIV_KEY_2}`]
+    },
+    base: {
+      url: `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
+      accounts: [`${PRIV_KEY}`]
+    },
+    polygon: {
+      url: `https://polygon-mainnet.infura.io/v3/${INFURA_API_KEY_2}`,
       accounts: [`${PRIV_KEY}`]
     },
     optimismGoerli: {
@@ -76,6 +85,7 @@ module.exports = {
     apiKey: {
       optimisticEthereum: `${OPT_SCAN_API_KEY}`,
       sepolia: `${ETH_SCAN_API_KEY}`,
+      polygon: `${POLY_SCAN_API_KEY}`,
       polygonMumbai: `${POLY_SCAN_API_KEY}`,
       arbitrumGoerli: `${ARB_SCAN_API_KEY}`,
       avalancheFujiTestnet: `${AVAX_SCAN_API_KEY}`
