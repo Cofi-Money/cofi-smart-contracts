@@ -54,8 +54,8 @@ contract VaultManagerFacet is Modifiers {
      * @notice Migrates assets to '_newVault'.
      * @dev Ensure that a buffer of the relevant underlying token resides at this contract
      *      before executing to account for slippage.
-     * @param _cofi         The cofi token to migrate underlying tokens for.
-     * @param _newVault     The new ERC4626 vault.
+     * @param _cofi     The cofi token to migrate underlying tokens for.
+     * @param _newVault The new ERC4626 vault.
      */
     function migrate(
         address _cofi,

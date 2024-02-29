@@ -15,9 +15,9 @@ import '@openzeppelin/contracts/security/ReentrancyGuard.sol';
     █▄▄ █▄█ █▀░ █
 
     @author Sam Goodenough, The Stoa Corporation Ltd.
-            (adapted from Origin Protocol Inc.)
+
     @title  COFI Rebasing Token Contract
-    @notice Rebasing ERC20 contract. Repurposed from OUSD.sol contract.
+    @notice Rebasing ERC20 contract.
  */
 
 /**

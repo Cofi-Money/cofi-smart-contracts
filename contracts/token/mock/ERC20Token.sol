@@ -9,12 +9,15 @@ contract ERC20Token is ERC20 {
         string memory _name,
         string memory _symbol,
         uint8 decimals_
-    ) ERC20(_name, _symbol) { _decimals = decimals_; }
+    ) ERC20(_name, _symbol) {
+        _decimals = decimals_;
+        _mint(msg.sender, 1_000*10**_decimals);
+    }
 
     uint8 private _decimals;
 
     function mint(address _to, uint _amount) external {
-        _mint(_to, _amount);
+        _mint(_to, _amount*10**uint256(_decimals));
     }
 
     function burn(address _from, uint _amount) external {
