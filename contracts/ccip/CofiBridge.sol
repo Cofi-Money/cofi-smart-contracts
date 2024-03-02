@@ -6,7 +6,6 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/interfaces/LinkT
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {Withdraw} from "./utils/Withdraw.sol";
-import {ERC20Token} from "../token/mock/ERC20Token.sol";
 import "../diamond/interfaces/IERC4626.sol";
 
 /**
@@ -157,7 +156,7 @@ contract CofiBridge is Withdraw, CCIPReceiver {
     ///         if this fee is paid from this contract's pre-existing balance.
     function setMandateFee(
         bool _enabled
-    )   external
+    )   external onlyAuthorized
     {
         mandateFee = _enabled;
     }
@@ -165,7 +164,7 @@ contract CofiBridge is Withdraw, CCIPReceiver {
     /// @notice Sets the gas limit for executing cross-chain txs.
     function setGasLimit(
         uint256 _gasLimit
-    )   external
+    )   external onlyAuthorized
     {
         gasLimit = _gasLimit;
     }
@@ -295,10 +294,11 @@ contract CofiBridge is Withdraw, CCIPReceiver {
         address _cofi,
         uint256 _shares,
         address _assetsReceiver
-    )   public onlyRouter
-        returns (uint256 assets)
+    )   public
     {
-        assets = vault[_cofi].redeem(_shares, _assetsReceiver, address(this));
+        require(msg.sender == address(this), "CofiBridge: Tx must originate from Router");
+
+        vault[_cofi].redeem(_shares, _assetsReceiver, address(this));
     }
 
 
@@ -347,7 +347,9 @@ contract CofiBridge is Withdraw, CCIPReceiver {
             receiver: abi.encode(_receiver),
             data: abi.encodeWithSignature("doPing(uint256)", _ping),
             tokenAmounts: new Client.EVMTokenAmount[](0),
-            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
+            extraArgs: Client._argsToBytes(
+                Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})
+            ),
             feeToken: address(0)
         });
 
@@ -379,7 +381,9 @@ contract CofiBridge is Withdraw, CCIPReceiver {
                 _pong
             ),
             tokenAmounts: new Client.EVMTokenAmount[](0),
-            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1(
+                {gasLimit: gasLimit, strict: false})
+            ),
             feeToken: address(0)
         });
 

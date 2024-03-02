@@ -34,13 +34,13 @@ async function main() {
     // Deploy Mock "Vault" (e.g. wcoUSD)
     const Vault = await ethers.getContractFactory("Vault")
     const vault = await Vault.deploy(
-        "Wrapped COFI Dollar (Optimism)",
-        "wcoUSDop",
-        '0x008aAbc5b60AF6D944e70383f94c9178A7809428'
-        // {gasLimit: "30000000"}
+        "Wrapped COFI Dollar",
+        "wcoUSD",
+        "0x8924ad39beEB4f8B778A1CcA6CB7CE89788eA895"
+        // {gasLimit: "200000"}
     )
     await vault.waitForDeployment()
-    console.log("wcoUSDop address: ", await vault.getAddress())
+    console.log("wcoUSD address: ", await vault.getAddress())
     // wcoUSDop address:  0x775D92358A9AC2CD9c8aDD5247Cf5BE3aB1f357A
 }
 

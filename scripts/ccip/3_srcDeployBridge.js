@@ -6,7 +6,7 @@ const SEPOLIA_ROUTER = "0xD0daae2231E9CB96b94C8512223533293C3693Bf"
 const MUMBAI_ROUTER = "0x70499c328e1E2a3c41108bd3730F6670a44595D1"
 const OPTIMISM_GOERLI_ROUTER = "0xEB52E9Ae4A9Fb37172978642d4C141ef53876f26"
 const FUJI_ROUTER = "0x554472a2720E5E7D5D3C817529aBA05EEd5F82D8"
-const OP_ROUTER = "0x261c05167db67B2b619f9d312e0753f3721ad6E8"
+const OP_ROUTER = "0x3206695CaE29952f4b0c22a169725a865bc8Ce0f" //v1.2
 const SEPOLIA_LINK = "0x779877A7B0D9E8603169DdbD7836e478b4624789"
 const MUMBAI_LINK = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 const OPTIMISM_GOERLI_LINK = "0xdc2CC710e42857672E7907CF474a69B63B93089f"
@@ -19,18 +19,18 @@ const POLY_CHAIN_SELECTOR = "4051577828743386545"
 
 async function main() {
 
-    const BridgeEntry = await ethers.getContractFactory("COFIBridgeEntry")
+    const BridgeEntry = await ethers.getContractFactory("CofiBridge")
     const bridgeEntry = await BridgeEntry.deploy(
         OP_ROUTER, // src
         OP_LINK, // src
-        "0x008aAbc5b60AF6D944e70383f94c9178A7809428", // cofi X
-        "0x775D92358A9AC2CD9c8aDD5247Cf5BE3aB1f357A", // vault X
+        "0x8924ad39beEB4f8B778A1CcA6CB7CE89788eA895", // cofi X
+        "0x901327f9B46dF1A8B72dD202dDFC4c05DE8fe599", // vault X
         POLY_CHAIN_SELECTOR,
-        "0x09a52a1c6093E61fEB5AB9E1597BbAfE72cC5992", // destShare X
-        "0xd75F5608f4a38A75F2435f652164c138B2eb9A29" // exit bridge X
+        "0x746C78bCB4106D2a37ebAD36552c1249b2Bd41bB", // destShare X
+        "0x82E55a92611E1D8319bBB63e154AA0833755c819" // exit bridge X
     )
     await bridgeEntry.waitForDeployment()
-    console.log("COFI Bridge Entry deployed: ", await bridgeEntry.getAddress())
+    console.log("Cofi Bridge deployed: ", await bridgeEntry.getAddress())
 }
 
 // We recommend this pattern to be able to use async/await everywhere

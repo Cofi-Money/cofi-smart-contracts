@@ -17,14 +17,12 @@ const { ethers } = require('hardhat')
 
 async function main() {
 
-    const LoanExample = await ethers.getContractFactory("LoanExample")
-    const loanExample = await LoanExample.deploy(
-        "dBank USD",
-        "dUSD",
-        18
+    const Hunter = await ethers.getContractFactory("YieldHunter")
+    const hunter = await Hunter.deploy(
+        "0x3c9F3b896EC6cC7AF79f5d1E127FD1e84940da4e"
     )
-    await loanExample.waitForDeployment()
-    console.log('LoanExample deployed: ', await loanExample.getAddress())
+    await hunter.waitForDeployment()
+    console.log('Hunter deployed: ', await hunter.getAddress())
 }
 
 // We recommend this pattern to be able to use async/await everywhere

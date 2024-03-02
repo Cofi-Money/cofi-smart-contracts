@@ -9,14 +9,14 @@ const OP_CHAIN_SELECTOR = "3734403246176062136"
 
 async function main() {
 
-    const bridgeExit = await ethers.getContractAt(
-        "COFIBridgeExit",
-        "0xd75F5608f4a38A75F2435f652164c138B2eb9A29"
+    const cofiUnbridge = await ethers.getContractAt(
+        "CofiUnbridge",
+        "0x82E55a92611E1D8319bBB63e154AA0833755c819"
     )
 
-    await bridgeExit.setReceiver(
+    await cofiUnbridge.setReceiver(
         OP_CHAIN_SELECTOR,
-        "0x913bcCb4e85C16F08731de7c2510d512AaFfF8F4", // entry bridge
+        "0x9afd8dA81B76CDB7734BF025de7bc2c5D3C9A55E", // entry bridge
         true
     )
     console.log("Receiver set")

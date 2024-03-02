@@ -6,7 +6,7 @@ import {LinkTokenInterface} from "@chainlink/contracts/src/v0.8/interfaces/LinkT
 import {IRouterClient} from "@chainlink/contracts-ccip/src/v0.8/ccip/interfaces/IRouterClient.sol";
 import {Client} from "@chainlink/contracts-ccip/src/v0.8/ccip/libraries/Client.sol";
 import {Withdraw} from "./utils/Withdraw.sol";
-import {ERC20Token} from "../token/mock/ERC20Token.sol";
+import {BridgedToken} from "./BridgedToken.sol";
 
 /**
 
@@ -23,7 +23,7 @@ import {ERC20Token} from "../token/mock/ERC20Token.sol";
             address to account for minor wei discrepancies.
  */
 
-contract COFIBridgeExit is Withdraw, CCIPReceiver {
+contract CofiUnbridge is Withdraw, CCIPReceiver {
     enum PayFeesIn {
         Native,
         LINK
@@ -46,7 +46,7 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
         address asset; // E.g., coUSD.
         uint64 chainSelector; // E.g., OPTIMISM_CHAIN_SELECTOR.
     }
-    // E.g., matwcoUSD (Polygon) => { coUSD (Optimism); OP chain selector }.
+    // E.g., matcoUSD (Polygon) => { coUSD (Optimism); OP chain selector }.
     mapping(address => SourceAsset) public srcAsset;
     // E.g., Optimism chain selector => Bridge.sol (Optimism).
     mapping(uint64 => address) public receiver;
@@ -107,7 +107,7 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
     }
 
     /// @notice Sets the address of the source asset for the given destination
-    ///         share (e.g., matwcoUSD => coUSD).
+    ///         share (e.g., matcoUSD => coUSD).
     function setSourceAsset(
         address _destShare,
         uint64  _srcChainSelector,
@@ -136,14 +136,16 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
     ///         if this fee is paid from this contract's pre-existing balance.
     function setMandateFee(
         bool _enabled
-    ) external {
+    )   external onlyAuthorized
+    {
         mandateFee = _enabled;
     }
 
     /// @notice Sets the gas limit for executing cross-chain txs.
     function setGasLimit(
         uint256 _gasLimit
-    ) external {
+    )   external onlyAuthorized
+    {
         gasLimit = _gasLimit;
     }
 
@@ -169,7 +171,7 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
                 revert InsufficientFee();
             }
         }
-        ERC20Token(_destShare).burn(msg.sender, _amount);
+        BridgedToken(_destShare).burn(msg.sender, _amount);
 
         _burn(
             srcAsset[_destShare].chainSelector,
@@ -184,7 +186,8 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
         address _asset,
         address _recipient,
         uint256 _amount
-    ) internal {
+    )   internal
+    {
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(receiver[_srcChainSelector]),
             data: abi.encodeWithSignature(
@@ -217,7 +220,9 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
         address _destShare,
         uint256 _amount,
         address _srcAssetReceiver
-    ) public view returns (uint256 fee) {
+    )   public view
+        returns (uint256 fee)
+    {
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(receiver[srcAsset[_destShare].chainSelector]),
             data: abi.encodeWithSignature(
@@ -227,7 +232,9 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
                 _srcAssetReceiver
             ),
             tokenAmounts: new Client.EVMTokenAmount[](0),
-            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1({gasLimit: gasLimit, strict: false})),
+            extraArgs: Client._argsToBytes(Client.EVMExtraArgsV1(
+                {gasLimit: gasLimit, strict: false})
+            ),
             feeToken: address(0)
         });
 
@@ -251,9 +258,11 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
         address _destShare,
         address _destSharesReceiver,
         uint256 _amount
-    )   public onlyRouter
+    )   public
     {
-        ERC20Token(_destShare).mint(_destSharesReceiver, _amount);
+        require(msg.sender == address(this), "CofiBridge: Tx must originate from Router");
+
+        BridgedToken(_destShare).mint(_destSharesReceiver, _amount);
     }
 
     function _ccipReceive(
@@ -318,8 +327,10 @@ contract COFIBridgeExit is Withdraw, CCIPReceiver {
     function getFeeETHPong(
         uint256 _pong,
         address _receiver,
-        uint64 _chainSelector
-    ) public view returns (uint256 fee) {
+        uint64  _chainSelector
+    )   public view
+        returns (uint256 fee)
+    {
         Client.EVM2AnyMessage memory message = Client.EVM2AnyMessage({
             receiver: abi.encode(_receiver),
             data: abi.encodeWithSignature(

@@ -77,21 +77,21 @@ describe('Test yield hunter', function () {
       await usdc.getAddress(),
       await vusdc.getAddress(),
       6,
-      1
+      0
     );
     await yieldHunter.addVault(
       // Use dummy address.
       await usdc.getAddress(),
       await vusdt.getAddress(),
       8,
-      1
+      0
     );
     await yieldHunter.addVault(
       // Use dummy address.
       await usdc.getAddress(),
       await vdai.getAddress(),
       18,
-      1
+      0
     );
 
     // Do initial capture
@@ -153,12 +153,12 @@ describe('Test yield hunter', function () {
     await dai.mint(await vdai.getAddress(), 10);
     await yieldHunter.capture(await usdc.getAddress());
 
-    // console.log('Mean winner: ');
-    // // Evaluates each vault for cofi token and returns highest.
-    // console.log(await yieldHunter.evaluateMean(await usdc.getAddress(), 6, false));
+    console.log('Mean winner: ');
+    // Evaluates each vault for cofi token and returns highest.
+    console.log(await yieldHunter.evaluateMeanInclDisabled(await usdc.getAddress(), 6, false));
     console.log('Median winner: ');
     console.log(
-      await yieldHunter.evaluateMedian(await usdc.getAddress(), 7, false)
+      await yieldHunter.evaluateMedianInclDisabled(await usdc.getAddress(), 7, false)
     );
   });
 });

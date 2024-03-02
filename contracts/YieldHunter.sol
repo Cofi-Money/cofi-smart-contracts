@@ -25,7 +25,7 @@ interface ICOFIMoney {
 contract YieldHunter {
     using SafeMath for uint256;
 
-    // E.g., coUSD => [yvUSDC, wsoUSDC, yvDAI, etc.].
+    /// @dev E.g., coUSD => [yvUSDC, wsoUSDC, yvDAI, etc.].
     mapping(address => address[]) public vaults;
 
     // E.g., yvUSDC => VaultInfo.
@@ -58,11 +58,11 @@ contract YieldHunter {
     error UNKNOWN_METHOD();
 
     constructor(
-        ICOFIMoney _diamond
+        address _diamond
     )
     {
         authorized[msg.sender] = true;
-        cofiMoney = _diamond;
+        cofiMoney = ICOFIMoney(_diamond);
     }
 
     /***************************************
@@ -71,10 +71,13 @@ contract YieldHunter {
 
     /**
      * @notice Captures assets from the shares ref point across all vaults, respectively.
-     * @dev Need to ensure captures are triggered over equal time intervals.
+     * @dev Need to ensure that captures are triggered over equal time intervals.
      * @dev Note that 'hunt()' also triggers 'capture()', so only one of these functions should
      *      be called at a time. If you no longer wish to trigger migrations but continue capturing
      *      assets values, ensure 'capture()' picks up the established cadence, and vice versa.
+     *      Alternatively, you could disable all vaults and continue calling 'hunt()'.
+     * @dev Intentionally, there is not a function to capture assets for a singular vault. This is
+            to ensure that vault yield earnings are measured over equal periods.
      * @param _cofi The cofi token to capture assets values across each vault for.
      */
     function capture(
@@ -82,7 +85,7 @@ contract YieldHunter {
     )   public onlyAuthorized
         returns (bool)
     {
-        for (uint i = 0; i < vaults[_cofi].length; i++) {
+        for (uint i; i < vaults[_cofi].length; i++) {
             vaultInfo[vaults[_cofi][i]].assets.push(
                 IERC4626(vaults[_cofi][i]).previewRedeem(
                     vaultInfo[vaults[_cofi][i]].initSharesRef
@@ -97,7 +100,7 @@ contract YieldHunter {
      * @param _cofi    The cofi token to evaluate which vault has the highest yield w.r.t. mean avg.
      * @param _entries The number of entries to evaluate.
      *                 E.g., if 3 entries which are captured 24h apart:
-     *                 (start)entry_1(+24h)+entry_2(+24h)+entry_3(finish) = 2 days.
+     *                 (start) capture entry_1 (+24h) + capture entry_2 (+24h) + capture entry_3 (finish) = 2 days.
      *                 Therefore: _entries - 1 = period.
      * @param _strict  See 'validEntries()' modifier.
      */
@@ -105,7 +108,7 @@ contract YieldHunter {
         address _cofi,
         uint256 _entries,
         bool    _strict
-    )   public view onlyAuthorized
+    )   public view
         returns (address target)
     {
         require(vaults[_cofi].length > 0, 'YieldHunter: Nothing to evaluate');
@@ -143,6 +146,34 @@ contract YieldHunter {
     }
 
     /**
+     * @notice Includes disabled vaults - can be useful for benchmarking.
+     */
+    function evaluateMeanInclDisabled(
+        address _cofi,
+        uint256 _entries,
+        bool    _strict
+    )   public view
+        returns (address target)
+    {
+        require(vaults[_cofi].length > 0, 'YieldHunter: Nothing to evaluate');
+
+        target = vaults[_cofi][0];
+
+        uint256 winner = getTotalVaultYield(target, _entries, _strict, true);
+
+        // Start from next index in prior for loop.
+        for (uint i = 1; i < vaults[_cofi].length; i++) {
+            /// @dev 'getTotalVaultYield()' is more computationally efficient than
+            ///      'getMeanVaultYield()' and will always result in the same 'target'.
+            uint256 round = getTotalVaultYield(vaults[_cofi][i], _entries, _strict, true);
+            if (round > winner) {
+                winner = round;
+                target = vaults[_cofi][i];
+            }
+        }
+    }
+
+    /**
      * @notice Evaluates median across ENABLED vaults only.
      * @notice Median is often preferred as a more reliable measure for higher yielding venues.
      *         (particularly over longer time frames).
@@ -151,7 +182,7 @@ contract YieldHunter {
         address _cofi,
         uint256 _entries,
         bool    _strict
-    )   public view onlyAuthorized
+    )   public view
         returns (address target)
     {
         require(vaults[_cofi].length > 0, 'YieldHunter: Nothing to evaluate');
@@ -187,7 +218,35 @@ contract YieldHunter {
     }
 
     /**
+     * @notice Includes disabled vaults - can be useful for benchmarking.
+     */
+    function evaluateMedianInclDisabled(
+        address _cofi,
+        uint256 _entries,
+        bool    _strict
+    )   public view
+        returns (address target)
+    {
+        require(vaults[_cofi].length > 0, 'YieldHunter: Nothing to evaluate');
+
+        target = vaults[_cofi][0];
+
+        uint256 winner = getMedianVaultYield(target, _entries, _strict, true);
+
+        // Start from next index in prior for loop.
+        for (uint i = 1; i < vaults[_cofi].length; i++) {
+            uint256 round = getMedianVaultYield(vaults[_cofi][i], _entries, _strict, true);
+            if (round > winner) {
+                winner = round;
+                target = vaults[_cofi][i];
+            }
+        }
+    }
+
+    /**
      * @notice Returns the total vault yield over a given period.
+     * @param _scaled If true, scales to 18 decimals - useful to compare assets with
+     *                different decimals (e.g., DAI, USDT and USDC).
      */
     function getTotalVaultYield(
         address _vault,
@@ -244,7 +303,7 @@ contract YieldHunter {
             j++;
         }
         
-        // Sort in ascending order of intra-period yield accrued.
+        // Sort in ascending order of intra-period yield accrued to find median yield.
         assetsDelta = _bubbleSort(assetsDelta);
 
         if (assetsDelta.length % 2 == 0) {
@@ -287,8 +346,10 @@ contract YieldHunter {
             revert UNKNOWN_METHOD();
         }
         
-        // If the target vault is not in use, trigger migration.
-        if (target != cofiMoney.getVault(_cofi)) {
+        // If the target vault is enabled and not in use, trigger migration.
+        /// @dev If all vaults are disabled, will not trigger migration
+        ///      (continue to use the existing vault).
+        if (target != cofiMoney.getVault(_cofi) && target != address(0)) {
             cofiMoney.migrate(_cofi, target);
             return (target, true);
         }
@@ -298,6 +359,9 @@ contract YieldHunter {
                     Admin
     ****************************************/
 
+    /**
+     * Adds a vault to the list of vaults operating for a given cofi token.
+     */
     function addVault(
         address _cofi,
         address _vault,

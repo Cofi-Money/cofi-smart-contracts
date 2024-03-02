@@ -1,5 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("hardhat-diamond-abi");
+require("solidity-docgen");
 require("dotenv").config();
 
 const { INFURA_API_KEY, INFURA_API_KEY_2, ALCHEMY_API_KEY, ETH_SCAN_API_KEY, POLY_SCAN_API_KEY, 
@@ -19,6 +20,9 @@ module.exports = {
       viaIR: true
     }
   },
+  // docgen: {
+
+  // }
   diamondAbi: {
     name: "COFIMoney",
     // name: "COFIToken",
@@ -35,7 +39,7 @@ module.exports = {
     optimisticEthereum: {
       url: `https://optimism-mainnet.infura.io/v3/${INFURA_API_KEY_2}`,
       // url: `https://opt-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-      accounts: [`${PRIV_KEY_2}`]
+      accounts: [`${PRIV_KEY}`]
     },
     base: {
       url: `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
